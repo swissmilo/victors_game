@@ -2,12 +2,7 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 
-interface MobileControlsProps {
-  holdProgress: number;  // 0-1, progress toward breaking a block
-  isValidHold: boolean;  // Whether the hold is valid for breaking (centered, minimal movement)
-}
-
-export function MobileControls({ holdProgress, isValidHold }: MobileControlsProps) {
+export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const touchIdRef = useRef<number | null>(null);
@@ -100,26 +95,6 @@ export function MobileControls({ holdProgress, isValidHold }: MobileControlsProp
   
   return (
     <>
-      {/* Hold progress indicator - only show when valid hold for breaking */}
-      {isValidHold && holdProgress > 0 && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-16 h-16 rounded-full border-4 border-white/50 relative">
-            <svg className="absolute inset-0 w-full h-full -rotate-90">
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth="4"
-                strokeDasharray={`${holdProgress * 175.93} 175.93`}
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
-        </div>
-      )}
-      
       {/* Virtual joystick for movement */}
       <div 
         ref={joystickRef}

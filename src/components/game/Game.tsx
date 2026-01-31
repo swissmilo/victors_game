@@ -30,7 +30,7 @@ export function Game() {
   const [isMobile] = useState(() => isTouchDevice());
   
   const { isLocked, requestLock, consumeMovement } = usePointerLock(containerRef);
-  const { consumeLookDelta, consumeTap, isHolding, holdDuration, isValidHoldForBreak } = useTouch(containerRef);
+  const { consumeLookDelta, consumeTap, isHolding, holdDuration, isValidHoldForBreak, getHoldPosition } = useTouch(containerRef);
   const setIsPlaying = useGameStore((state) => state.setIsPlaying);
   const isFlying = useGameStore((state) => state.isFlying);
   const saveGame = useGameStore((state) => state.saveGame);
@@ -67,6 +67,14 @@ export function Game() {
       }
     }
   }, [gameStarted, isLocked, showMenu, requestLock, setIsPlaying, isMobile]);
+
+  // Pause/unpause game based on pointer lock state (desktop only)
+  useEffect(() => {
+    if (!gameStarted || showMenu || isMobile) return;
+    
+    // On desktop, game is paused when pointer is unlocked
+    setIsPlaying(isLocked);
+  }, [gameStarted, showMenu, isLocked, isMobile, setIsPlaying]);
 
   // Auto-save every 30 seconds when playing
   useEffect(() => {
@@ -128,6 +136,7 @@ export function Game() {
                 isHolding={isHolding}
                 holdDuration={holdDuration}
                 isValidHoldForBreak={isValidHoldForBreak}
+                getHoldPosition={getHoldPosition}
               />
             </Suspense>
           </Canvas>
@@ -164,12 +173,7 @@ export function Game() {
           <CatastropheTimer />
           
           {/* Mobile controls */}
-          {isMobile && (
-            <MobileControls 
-              holdProgress={Math.min(holdDuration() / 500, 1)} 
-              isValidHold={isValidHoldForBreak()}
-            />
-          )}
+          {isMobile && <MobileControls />}
           
           {/* Flying indicator */}
           {isFlying && (

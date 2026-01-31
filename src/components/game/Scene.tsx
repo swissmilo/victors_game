@@ -18,6 +18,7 @@ interface SceneProps {
   isHolding: () => boolean;
   holdDuration: () => number;
   isValidHoldForBreak: () => boolean;
+  getHoldPosition: () => { x: number; y: number } | null;
 }
 
 export function Scene({ 
@@ -29,6 +30,7 @@ export function Scene({
   isHolding,
   holdDuration,
   isValidHoldForBreak,
+  getHoldPosition,
 }: SceneProps) {
   // On mobile, controls are always active; on desktop, only when pointer is locked
   const controlsActive = isMobile || isLocked;
@@ -72,6 +74,7 @@ export function Scene({
         isHolding={isHolding}
         holdDuration={holdDuration}
         isValidHoldForBreak={isValidHoldForBreak}
+        getHoldPosition={getHoldPosition}
       />
       
       {/* Voxel world - render distance 8 = ~128 blocks, unload at 12 */}

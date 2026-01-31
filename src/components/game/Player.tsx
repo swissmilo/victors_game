@@ -158,6 +158,9 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   // Handle hotbar selection and double-tap fly toggle
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard input when game is paused
+      if (!isLocked) return;
+      
       const key = event.key;
       
       // Hotbar selection
@@ -193,9 +196,20 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [setHotbarSelection, isFlying, setIsFlying]);
+  }, [isLocked, setHotbarSelection, isFlying, setIsFlying]);
 
   useFrame((_, delta) => {
+    // Skip all processing when game is paused (not locked/active)
+    if (!isLocked) {
+      // Still update camera position to current player position
+      camera.position.set(
+        positionRef.current.x,
+        positionRef.current.y + EYE_HEIGHT,
+        positionRef.current.z
+      );
+      return;
+    }
+    
     // Clamp delta to prevent huge jumps
     const dt = Math.min(delta, 0.1);
     

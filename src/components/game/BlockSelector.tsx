@@ -34,6 +34,7 @@ interface BlockSelectorProps {
   isHolding?: () => boolean;
   holdDuration?: () => number;
   isValidHoldForBreak?: () => boolean;
+  getHoldPosition?: () => { x: number; y: number } | null;
 }
 
 // Hold duration needed to break a block on mobile (ms)
@@ -46,6 +47,7 @@ export function BlockSelector({
   isHolding,
   holdDuration,
   isValidHoldForBreak,
+  getHoldPosition,
 }: BlockSelectorProps) {
   const { camera, size } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
@@ -224,17 +226,22 @@ export function BlockSelector({
       }
       
       // Check for hold (break block) - only if valid hold (centered, minimal movement)
-      if (isHolding && holdDuration && isValidHoldForBreak) {
+      if (isHolding && holdDuration && isValidHoldForBreak && getHoldPosition) {
         const holding = isHolding();
         const duration = holdDuration();
         const validHold = isValidHoldForBreak();
         
         // Only break if: holding, long enough, valid hold position, and haven't already triggered
         if (holding && duration >= HOLD_BREAK_THRESHOLD && validHold && !hasTriggeredBreak.current) {
-          // Use the center-screen hit for hold-to-break (since player looks at what they want to break)
-          if (hit) {
-            breakBlockAt(hit);
-            hasTriggeredBreak.current = true;
+          // Raycast from hold position (where the touch started)
+          const holdPos = getHoldPosition();
+          if (holdPos) {
+            const holdDirection = screenToRayDirection(holdPos.x, holdPos.y, camera, size);
+            const holdHit = raycastBlocks(camera.position, holdDirection, chunksMap, 6);
+            if (holdHit) {
+              breakBlockAt(holdHit);
+              hasTriggeredBreak.current = true;
+            }
           }
         }
         

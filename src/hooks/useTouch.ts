@@ -20,6 +20,7 @@ interface UseTouchReturn {
   isHolding: () => boolean;
   holdDuration: () => number;
   isValidHoldForBreak: () => boolean;  // Check if hold is valid for breaking blocks
+  getHoldPosition: () => { x: number; y: number } | null;  // Get the position where hold started
 }
 
 // Thresholds
@@ -210,6 +211,12 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
            touchState.current.totalMovement < HOLD_MAX_MOVEMENT;
   }, []);
   
+  // Get the position where the current hold started
+  const getHoldPosition = useCallback(() => {
+    if (!touchState.current.isLooking) return null;
+    return { ...touchStartPos.current };
+  }, []);
+  
   return {
     touchState,
     consumeLookDelta,
@@ -217,5 +224,6 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     isHolding,
     holdDuration,
     isValidHoldForBreak,
+    getHoldPosition,
   };
 }
