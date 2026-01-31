@@ -2,14 +2,21 @@
 
 import { useRef, useCallback, Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { usePointerLock } from '@/hooks';
+import { usePointerLock, useTouch } from '@/hooks';
 import { Scene } from './Scene';
 import { Hotbar } from '../ui/Hotbar';
 import { Crosshair } from '../ui/Crosshair';
 import { CatastropheTimer } from '../ui/CatastropheTimer';
 import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
+import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
 import { useGameStore } from '@/stores';
+
+// Detect if running on touch device
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
 
 // Auto-save interval in milliseconds (30 seconds)
 const AUTO_SAVE_INTERVAL = 30000;
@@ -19,7 +26,11 @@ export function Game() {
   const [showMenu, setShowMenu] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
   
+  // Detect mobile - use lazy initial state to avoid hydration mismatch
+  const [isMobile] = useState(() => isTouchDevice());
+  
   const { isLocked, requestLock, consumeMovement } = usePointerLock(containerRef);
+  const { consumeLookDelta, consumeTap, isHolding, holdDuration } = useTouch(containerRef);
   const setIsPlaying = useGameStore((state) => state.setIsPlaying);
   const isFlying = useGameStore((state) => state.isFlying);
   const saveGame = useGameStore((state) => state.saveGame);
@@ -43,13 +54,19 @@ export function Game() {
     setGameStarted(true);
   }, []);
 
-  // Handle clicking to lock pointer when game is active
+  // Handle clicking to lock pointer when game is active (desktop)
+  // On mobile, we don't need pointer lock
   const handleClick = useCallback(() => {
-    if (gameStarted && !isLocked && !showMenu) {
-      requestLock();
-      setIsPlaying(true);
+    if (gameStarted && !showMenu) {
+      if (isMobile) {
+        // On mobile, just set playing on first touch
+        setIsPlaying(true);
+      } else if (!isLocked) {
+        requestLock();
+        setIsPlaying(true);
+      }
     }
-  }, [gameStarted, isLocked, showMenu, requestLock, setIsPlaying]);
+  }, [gameStarted, isLocked, showMenu, requestLock, setIsPlaying, isMobile]);
 
   // Auto-save every 30 seconds when playing
   useEffect(() => {
@@ -102,7 +119,15 @@ export function Game() {
             gl={{ antialias: true }}
           >
             <Suspense fallback={null}>
-              <Scene isLocked={isLocked} consumeMovement={consumeMovement} />
+              <Scene 
+                isLocked={isLocked} 
+                consumeMovement={consumeMovement}
+                isMobile={isMobile}
+                consumeLookDelta={consumeLookDelta}
+                consumeTap={consumeTap}
+                isHolding={isHolding}
+                holdDuration={holdDuration}
+              />
             </Suspense>
           </Canvas>
           {/* Earthquake vignette overlay */}
@@ -129,13 +154,18 @@ export function Game() {
         <WorldMenu onStartGame={handleStartGame} />
       )}
       
-      {/* UI Overlay */}
-      {gameStarted && isLocked && (
+      {/* UI Overlay - show when locked (desktop) or always on mobile */}
+      {gameStarted && (isLocked || isMobile) && !showMenu && (
         <>
           <UnderwaterOverlay />
           <Crosshair />
           <Hotbar />
           <CatastropheTimer />
+          
+          {/* Mobile controls */}
+          {isMobile && (
+            <MobileControls holdProgress={Math.min(holdDuration() / 500, 1)} />
+          )}
           
           {/* Flying indicator */}
           {isFlying && (
@@ -146,8 +176,8 @@ export function Game() {
         </>
       )}
       
-      {/* Click to resume when pointer unlocked but game started */}
-      {gameStarted && !isLocked && !showMenu && (
+      {/* Click to resume when pointer unlocked but game started (desktop only) */}
+      {gameStarted && !isLocked && !showMenu && !isMobile && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="text-center text-white">
             <h2 className="text-3xl font-bold mb-4">Game Paused</h2>

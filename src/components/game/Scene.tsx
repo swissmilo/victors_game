@@ -12,9 +12,25 @@ import { BloodRainSystem } from './BloodRainSystem';
 interface SceneProps {
   isLocked: boolean;
   consumeMovement: () => { x: number; y: number };
+  isMobile: boolean;
+  consumeLookDelta: () => { x: number; y: number };
+  consumeTap: () => { x: number; y: number } | null;
+  isHolding: () => boolean;
+  holdDuration: () => number;
 }
 
-export function Scene({ isLocked, consumeMovement }: SceneProps) {
+export function Scene({ 
+  isLocked, 
+  consumeMovement, 
+  isMobile,
+  consumeLookDelta,
+  consumeTap,
+  isHolding,
+  holdDuration,
+}: SceneProps) {
+  // On mobile, controls are always active; on desktop, only when pointer is locked
+  const controlsActive = isMobile || isLocked;
+  
   return (
     <>
       {/* Performance stats */}
@@ -42,10 +58,21 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       <fog attach="fog" args={['#87CEEB', 100, 180]} />
       
       {/* Player controller */}
-      <Player isLocked={isLocked} consumeMovement={consumeMovement} />
+      <Player 
+        isLocked={controlsActive} 
+        consumeMovement={consumeMovement}
+        isMobile={isMobile}
+        consumeLookDelta={consumeLookDelta}
+      />
       
       {/* Block selection/interaction */}
-      <BlockSelector enabled={isLocked} />
+      <BlockSelector 
+        enabled={controlsActive}
+        isMobile={isMobile}
+        consumeTap={consumeTap}
+        isHolding={isHolding}
+        holdDuration={holdDuration}
+      />
       
       {/* Voxel world - render distance 8 = ~128 blocks, unload at 12 */}
       <World renderDistance={8} unloadDistance={12} />

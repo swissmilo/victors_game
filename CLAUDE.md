@@ -105,6 +105,22 @@ The mesh builder (`src/lib/meshBuilder.ts`) uses **face culling**:
 - No gravity when flying
 - Blue "Flying" indicator shown in UI
 
+### Mobile Touch Controls
+
+The game automatically detects touch devices and enables mobile controls:
+
+- **Look around**: Touch and drag anywhere on screen
+- **Place block**: Quick tap (< 200ms)
+- **Break block**: Press and hold (> 500ms) - shows circular progress indicator
+- **Move**: Virtual joystick in bottom-left corner
+- **Jump**: Button in bottom-right corner
+
+Implementation:
+- `useTouch` hook handles all touch events
+- `MobileControls` component renders virtual joystick and action buttons
+- Joystick simulates keyboard events (WASD) for movement
+- No pointer lock needed on mobile
+
 ### Catastrophe System
 
 Four catastrophes cycle in order: **Earthquake → Black Hole → Tsunami → Blood Rain**
@@ -285,3 +301,5 @@ const { setPlayerPosition, addToInventory, saveGame } = useGameStore.getState();
 | `src/components/ui/WorldMenu.tsx` | Start screen with load/new world options |
 | `src/components/ui/CatastropheTimer.tsx` | Catastrophe countdown and progress display |
 | `src/components/ui/UnderwaterOverlay.tsx` | Underwater visual effects |
+| `src/components/ui/MobileControls.tsx` | Touch controls (joystick, buttons) |
+| `src/hooks/useTouch.ts` | Touch input handling hook |

@@ -25,9 +25,11 @@ const TELEPORTER_COOLDOWN = 1000; // ms - time before player can use teleporter 
 interface PlayerProps {
   isLocked: boolean;
   consumeMovement: () => { x: number; y: number };
+  isMobile?: boolean;
+  consumeLookDelta?: () => { x: number; y: number };
 }
 
-export function Player({ isLocked, consumeMovement }: PlayerProps) {
+export function Player({ isLocked, consumeMovement, isMobile = false, consumeLookDelta }: PlayerProps) {
   const { camera } = useThree();
   const keys = useKeyboard();
   
@@ -204,12 +206,19 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
       setRespawnPosition(null);
     }
     
-    // Get mouse movement for camera rotation
+    // Get mouse/touch movement for camera rotation
     if (isLocked) {
-      const { x: movementX, y: movementY } = consumeMovement();
-      
-      yawRef.current -= movementX * MOUSE_SENSITIVITY;
-      pitchRef.current -= movementY * MOUSE_SENSITIVITY;
+      if (isMobile && consumeLookDelta) {
+        // Touch controls
+        const { x: deltaX, y: deltaY } = consumeLookDelta();
+        yawRef.current -= deltaX * MOUSE_SENSITIVITY * 0.5;
+        pitchRef.current -= deltaY * MOUSE_SENSITIVITY * 0.5;
+      } else {
+        // Mouse controls
+        const { x: movementX, y: movementY } = consumeMovement();
+        yawRef.current -= movementX * MOUSE_SENSITIVITY;
+        pitchRef.current -= movementY * MOUSE_SENSITIVITY;
+      }
       pitchRef.current = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitchRef.current));
     }
 

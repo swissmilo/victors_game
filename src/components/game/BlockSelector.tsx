@@ -9,12 +9,26 @@ import { BlockType } from '@/types';
 
 interface BlockSelectorProps {
   enabled: boolean;
+  isMobile?: boolean;
+  consumeTap?: () => { x: number; y: number } | null;
+  isHolding?: () => boolean;
+  holdDuration?: () => number;
 }
 
-export function BlockSelector({ enabled }: BlockSelectorProps) {
+// Hold duration needed to break a block on mobile (ms)
+const HOLD_BREAK_THRESHOLD = 500;
+
+export function BlockSelector({ 
+  enabled, 
+  isMobile = false,
+  consumeTap,
+  isHolding,
+  holdDuration,
+}: BlockSelectorProps) {
   const { camera } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
   const highlightRef = useRef<THREE.Mesh>(null);
+  const hasTriggeredBreak = useRef(false);  // Track if we've broken a block during current hold
   
   const chunks = useGameStore((state) => state.chunks);
   const setChunk = useGameStore((state) => state.setChunk);
@@ -163,6 +177,33 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
     const hit = raycastBlocks(camera.position, direction, chunksMap, 6);
     
     setTargetBlock(hit);
+    
+    // Handle mobile touch controls
+    if (isMobile) {
+      // Check for tap (place block)
+      if (consumeTap) {
+        const tap = consumeTap();
+        if (tap && hit) {
+          placeBlock();
+        }
+      }
+      
+      // Check for hold (break block)
+      if (isHolding && holdDuration) {
+        const holding = isHolding();
+        const duration = holdDuration();
+        
+        if (holding && duration >= HOLD_BREAK_THRESHOLD && !hasTriggeredBreak.current && hit) {
+          breakBlock();
+          hasTriggeredBreak.current = true;
+        }
+        
+        // Reset when not holding
+        if (!holding) {
+          hasTriggeredBreak.current = false;
+        }
+      }
+    }
     
     // Update highlight position
     if (highlightRef.current) {
