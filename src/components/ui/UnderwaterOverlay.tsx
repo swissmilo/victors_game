@@ -6,8 +6,8 @@ export function UnderwaterOverlay() {
   const playerPosition = useGameStore((state) => state.playerPosition);
   const tsunami = useGameStore((state) => state.tsunami);
   
-  // Player eye level is approximately playerPosition[1] + 1.6 (player height)
-  const playerEyeLevel = playerPosition[1] + 1.6;
+  // Player eye level is approximately playerPosition[1] + 1.7 (eye height)
+  const playerEyeLevel = playerPosition[1] + 1.7;
   const isUnderwater = playerEyeLevel < tsunami.waterLevel;
   
   if (!isUnderwater) return null;
