@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voxel World
+
+A Minecraft-style 3D voxel game built with Next.js, Three.js, and React Three Fiber.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **3D Engine**: Three.js via @react-three/fiber
+- **Physics**: Rapier via @react-three/rapier
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Controls
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **WASD** - Move
+- **Mouse** - Look around
+- **Space** - Jump
+- **1-9** - Select hotbar slot
+- **Left Click** - Break block (coming soon)
+- **Right Click** - Place block (coming soon)
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/                 # Next.js app router
+├── components/
+│   ├── game/           # 3D game components
+│   │   ├── Game.tsx    # Main game canvas
+│   │   ├── Scene.tsx   # Three.js scene
+│   │   ├── Player.tsx  # First-person player
+│   │   └── Ground.tsx  # Terrain mesh
+│   └── ui/             # UI components
+│       ├── Hotbar.tsx  # Inventory hotbar
+│       └── Crosshair.tsx
+├── hooks/              # Custom React hooks
+│   ├── useKeyboard.ts  # Keyboard input
+│   └── usePointerLock.ts # Mouse capture
+├── lib/                # Utility functions
+│   ├── noise.ts        # Perlin noise generation
+│   └── worldGen.ts     # Terrain generation
+├── stores/             # Zustand stores
+│   └── gameStore.ts    # Global game state
+└── types/              # TypeScript types
+    ├── blocks.ts       # Block definitions
+    └── world.ts        # World/chunk types
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Phase 1: Foundation (Current) ✓
+- [x] Project setup with Next.js + TypeScript
+- [x] Three.js integration with React Three Fiber
+- [x] Physics engine with Rapier
+- [x] Basic 3D scene with lighting
+- [x] First-person camera controls
+- [x] Ground terrain for testing
 
-## Deploy on Vercel
+### Phase 2: Voxel World
+- [ ] Chunk-based world system
+- [ ] Block meshing algorithm
+- [ ] Texture atlas for blocks
+- [ ] Procedural terrain generation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Phase 3: Block Interaction
+- [ ] Raycasting for block selection
+- [ ] Block breaking
+- [ ] Block placing
+- [ ] Chunk mesh updates
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Phase 4: Polish
+- [ ] Multi-chunk loading/unloading
+- [ ] Performance optimizations
+- [ ] World persistence (localStorage)
+- [ ] Visual polish (particles, AO)
+
+## License
+
+MIT
