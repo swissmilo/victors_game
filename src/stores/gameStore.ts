@@ -22,6 +22,7 @@ interface GameState {
   // Game settings
   isPlaying: boolean;
   isPaused: boolean;
+  isFlying: boolean;
   
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
@@ -34,6 +35,7 @@ interface GameState {
   markChunkDirty: (position: ChunkPosition) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setIsPaused: (isPaused: boolean) => void;
+  setIsFlying: (isFlying: boolean) => void;
 }
 
 const INITIAL_INVENTORY: InventorySlot[] = [
@@ -58,6 +60,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   renderDistance: 4,
   isPlaying: false,
   isPaused: false,
+  isFlying: false,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -139,4 +142,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   
   setIsPaused: (isPaused) => set({ isPaused }),
+  
+  setIsFlying: (isFlying) => set({ isFlying }),
 }));

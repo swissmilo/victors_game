@@ -15,7 +15,6 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
   const { camera } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
   const highlightRef = useRef<THREE.Mesh>(null);
-  const placePreviewRef = useRef<THREE.Mesh>(null);
   
   const chunks = useGameStore((state) => state.chunks);
   const setChunk = useGameStore((state) => state.setChunk);
@@ -160,46 +159,17 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
         highlightRef.current.visible = false;
       }
     }
-    
-    // Update place preview position
-    if (placePreviewRef.current) {
-      if (hit && inventory[hotbarSelection]?.count > 0) {
-        placePreviewRef.current.visible = true;
-        placePreviewRef.current.position.set(
-          hit.placePosition.x + 0.5,
-          hit.placePosition.y + 0.5,
-          hit.placePosition.z + 0.5
-        );
-      } else {
-        placePreviewRef.current.visible = false;
-      }
-    }
   });
 
   return (
-    <>
-      {/* Block highlight wireframe */}
-      <mesh ref={highlightRef} visible={false}>
-        <boxGeometry args={[1.01, 1.01, 1.01]} />
-        <meshBasicMaterial 
-          color="#ffffff" 
-          wireframe 
-          transparent 
-          opacity={0.8}
-          depthTest={false}
-        />
-      </mesh>
-      
-      {/* Place position preview */}
-      <mesh ref={placePreviewRef} visible={false}>
-        <boxGeometry args={[1.02, 1.02, 1.02]} />
-        <meshBasicMaterial 
-          color="#00ff00" 
-          wireframe 
-          transparent 
-          opacity={0.3}
-        />
-      </mesh>
-    </>
+    <mesh ref={highlightRef} visible={false}>
+      <boxGeometry args={[1.002, 1.002, 1.002]} />
+      <meshBasicMaterial 
+        color="#000000" 
+        wireframe 
+        transparent 
+        opacity={0.4}
+      />
+    </mesh>
   );
 }

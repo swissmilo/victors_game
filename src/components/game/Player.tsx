@@ -7,11 +7,13 @@ import { useKeyboard } from '@/hooks';
 import { useGameStore } from '@/stores';
 
 const MOVE_SPEED = 10;
+const FLY_SPEED = 15;
 const MOUSE_SENSITIVITY = 0.002;
 const PLAYER_HEIGHT = 1.7;
 const GRAVITY = 30;
 const JUMP_VELOCITY = 12;
 const GROUND_LEVEL = 35; // Approximate ground level
+const DOUBLE_TAP_THRESHOLD = 300; // ms
 
 interface PlayerProps {
   isLocked: boolean;
@@ -24,24 +26,55 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
   
   const setPlayerPosition = useGameStore((state) => state.setPlayerPosition);
   const setHotbarSelection = useGameStore((state) => state.setHotbarSelection);
+  const isFlying = useGameStore((state) => state.isFlying);
+  const setIsFlying = useGameStore((state) => state.setIsFlying);
   
   const positionRef = useRef(new THREE.Vector3(8, 50, 8));
   const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
   const isGroundedRef = useRef(false);
+  const lastSpacePressRef = useRef(0);
+  const spaceWasDownRef = useRef(false);
 
-  // Handle hotbar selection with number keys
+  // Handle hotbar selection and double-tap fly toggle
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key;
+      
+      // Hotbar selection
       if (key >= '1' && key <= '9') {
         setHotbarSelection(parseInt(key) - 1);
+      }
+      
+      // Double-tap space to toggle fly mode
+      if (event.code === 'Space' && !spaceWasDownRef.current) {
+        const now = Date.now();
+        const timeSinceLastPress = now - lastSpacePressRef.current;
+        
+        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
+          setIsFlying(!isFlying);
+          // Reset velocity when toggling fly
+          velocityRef.current.y = 0;
+        }
+        
+        lastSpacePressRef.current = now;
+        spaceWasDownRef.current = true;
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        spaceWasDownRef.current = false;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [setHotbarSelection]);
 
   useFrame((_, delta) => {
@@ -67,19 +100,29 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
 
     moveDirection.normalize();
     moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), yawRef.current);
-    moveDirection.multiplyScalar(MOVE_SPEED);
+    
+    const currentSpeed = isFlying ? FLY_SPEED : MOVE_SPEED;
+    moveDirection.multiplyScalar(currentSpeed);
 
     // Apply horizontal movement
     velocityRef.current.x = moveDirection.x;
     velocityRef.current.z = moveDirection.z;
 
-    // Apply gravity
-    velocityRef.current.y -= GRAVITY * dt;
+    if (isFlying) {
+      // Flying mode - space goes up, shift goes down
+      let verticalVelocity = 0;
+      if (keys['Space']) verticalVelocity += FLY_SPEED;
+      if (keys['ShiftLeft'] || keys['ShiftRight']) verticalVelocity -= FLY_SPEED;
+      velocityRef.current.y = verticalVelocity;
+    } else {
+      // Normal mode - apply gravity
+      velocityRef.current.y -= GRAVITY * dt;
 
-    // Jump
-    if (keys['Space'] && isGroundedRef.current) {
-      velocityRef.current.y = JUMP_VELOCITY;
-      isGroundedRef.current = false;
+      // Jump
+      if (keys['Space'] && isGroundedRef.current) {
+        velocityRef.current.y = JUMP_VELOCITY;
+        isGroundedRef.current = false;
+      }
     }
 
     // Update position
@@ -87,8 +130,8 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     positionRef.current.y += velocityRef.current.y * dt;
     positionRef.current.z += velocityRef.current.z * dt;
 
-    // Simple ground collision (temporary until proper voxel collision)
-    if (positionRef.current.y < GROUND_LEVEL) {
+    // Ground collision (only when not flying)
+    if (!isFlying && positionRef.current.y < GROUND_LEVEL) {
       positionRef.current.y = GROUND_LEVEL;
       velocityRef.current.y = 0;
       isGroundedRef.current = true;
