@@ -39,7 +39,7 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   const setIsFlying = useGameStore((state) => state.setIsFlying);
   const chunks = useGameStore((state) => state.chunks);
   const teleporters = useGameStore((state) => state.teleporters);
-  const blackHolePullForce = useGameStore((state) => state.blackHole.pullForce);
+  const blackHole = useGameStore((state) => state.blackHole);
   const respawnPosition = useGameStore((state) => state.respawnPosition);
   const setRespawnPosition = useGameStore((state) => state.setRespawnPosition);
   
@@ -206,6 +206,9 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       setRespawnPosition(null);
     }
     
+    // Check if being pulled by black hole (skip normal physics)
+    const isBeingPulledByBlackHole = blackHole.phase === 'pulling' || blackHole.phase === 'consuming';
+    
     // Get mouse/touch movement for camera rotation
     if (isLocked) {
       if (isMobile && consumeLookDelta) {
@@ -222,7 +225,46 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       pitchRef.current = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitchRef.current));
     }
 
-    // Calculate movement direction
+    // If being pulled by black hole, directly lerp toward it (no collision, no normal physics)
+    if (isBeingPulledByBlackHole) {
+      const [bhX, bhY, bhZ] = blackHole.position;
+      
+      // Calculate pull speed based on phase (faster during consuming)
+      const pullSpeed = blackHole.phase === 'consuming' ? 20 : 8;
+      
+      // Move directly toward black hole (straight line)
+      const dx = bhX - positionRef.current.x;
+      const dy = bhY - positionRef.current.y;
+      const dz = bhZ - positionRef.current.z;
+      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      
+      if (distance > 0.5) {
+        // Normalize and move toward black hole
+        const moveAmount = Math.min(pullSpeed * dt, distance);
+        positionRef.current.x += (dx / distance) * moveAmount;
+        positionRef.current.y += (dy / distance) * moveAmount;
+        positionRef.current.z += (dz / distance) * moveAmount;
+      }
+      
+      // Clear velocity since we're overriding movement
+      velocityRef.current.set(0, 0, 0);
+      
+      // Update camera position and rotation
+      camera.position.set(
+        positionRef.current.x,
+        positionRef.current.y + EYE_HEIGHT,
+        positionRef.current.z
+      );
+      
+      const euler = new THREE.Euler(pitchRef.current, yawRef.current, 0, 'YXZ');
+      camera.quaternion.setFromEuler(euler);
+
+      // Update store
+      setPlayerPosition([positionRef.current.x, positionRef.current.y, positionRef.current.z]);
+      return; // Skip normal physics
+    }
+
+    // Calculate movement direction (normal gameplay)
     const moveDirection = new THREE.Vector3();
     
     if (keys['KeyW']) moveDirection.z -= 1;
@@ -239,13 +281,6 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
     // Apply horizontal movement
     velocityRef.current.x = moveDirection.x;
     velocityRef.current.z = moveDirection.z;
-    
-    // Apply black hole pull force (overrides normal movement when active)
-    if (blackHolePullForce[0] !== 0 || blackHolePullForce[1] !== 0 || blackHolePullForce[2] !== 0) {
-      velocityRef.current.x += blackHolePullForce[0];
-      velocityRef.current.z += blackHolePullForce[2];
-      // Y-force handled separately below
-    }
 
     if (isFlying) {
       // Flying mode - space goes up, shift goes down
@@ -256,11 +291,6 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
     } else {
       // Normal mode - apply gravity
       velocityRef.current.y -= GRAVITY * dt;
-      
-      // Apply black hole Y pull force
-      if (blackHolePullForce[1] !== 0) {
-        velocityRef.current.y += blackHolePullForce[1];
-      }
 
       // Jump
       if (keys['Space'] && isGroundedRef.current) {

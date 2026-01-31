@@ -167,7 +167,7 @@ const BLACK_HOLE_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 
 // Tsunami configuration
 const TSUNAMI_COUNTDOWN = CATASTROPHE_COUNTDOWN;
-const BASE_WATER_LEVEL = 32;   // Sea level
+const BASE_WATER_LEVEL = 0;    // Bottom of world (no water when no tsunami)
 const MAX_WATER_LEVEL = 70;    // Top of haunted mansion (~35 blocks above base terrain)
 
 // Blood rain configuration

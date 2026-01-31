@@ -630,16 +630,14 @@ export function generateChunk(position: ChunkPosition): ChunkData {
           // Dirt layer
           blockType = BlockType.DIRT;
         } else if (y < height) {
-          // Top layer - grass or sand near water
+          // Top layer - grass or sand in low areas
           if (height <= SEA_LEVEL + 1) {
             blockType = BlockType.SAND;
           } else {
             blockType = BlockType.GRASS;
           }
-        } else if (y < SEA_LEVEL) {
-          // Water below sea level
-          blockType = BlockType.WATER;
         }
+        // No permanent water - water only appears during tsunami
 
         setBlockInChunk(chunk, x, y, z, blockType);
       }

@@ -14,9 +14,6 @@ const BLACKOUT_DURATION = 2;      // Seconds of screen blackout
 // Black hole distance from player when spawning
 const SPAWN_DISTANCE = 30;
 
-// Pull strength (blocks per second at max intensity)
-const PULL_STRENGTH = 8;
-
 // Black hole visual properties
 const BLACK_HOLE_SIZE = 5;
 const ACCRETION_DISK_SIZE = 12;
@@ -54,7 +51,7 @@ export function BlackHoleSystem() {
       return;
     }
     
-    const { phase, countdown, position } = blackHole;
+    const { phase, countdown } = blackHole;
     
     switch (phase) {
       case 'countdown': {
@@ -99,56 +96,26 @@ export function BlackHoleSystem() {
       }
       
       case 'pulling': {
-        // Pull player toward black hole
+        // Player is being pulled toward black hole (handled by Player component)
         phaseTimer.current += delta;
         
-        // Calculate pull direction
-        const dx = position[0] - playerPosition[0];
-        const dy = position[1] - playerPosition[1];
-        const dz = position[2] - playerPosition[2];
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        
-        if (distance > 2) {
-          // Normalize and calculate pull force (stronger when closer)
-          const pullFactor = PULL_STRENGTH * (1 + 20 / distance);
-          const forceX = (dx / distance) * pullFactor;
-          const forceY = (dy / distance) * pullFactor;
-          const forceZ = (dz / distance) * pullFactor;
-          
-          updateBlackHole({ pullForce: [forceX, forceY, forceZ] });
-        }
-        
         if (phaseTimer.current >= PULLING_DURATION) {
-          updateBlackHole({ phase: 'consuming', pullForce: [0, 0, 0] });
+          updateBlackHole({ phase: 'consuming' });
           phaseTimer.current = 0;
         }
         break;
       }
       
       case 'consuming': {
-        // Final consume - rapid pull and start blackout
+        // Final consume - rapid pull (handled by Player) and start blackout
         phaseTimer.current += delta;
         const progress = Math.min(phaseTimer.current / CONSUMING_DURATION, 1);
-        
-        // Rapid pull
-        const dx = position[0] - playerPosition[0];
-        const dy = position[1] - playerPosition[1];
-        const dz = position[2] - playerPosition[2];
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        
-        if (distance > 1) {
-          const pullFactor = PULL_STRENGTH * 5;
-          const forceX = (dx / distance) * pullFactor;
-          const forceY = (dy / distance) * pullFactor;
-          const forceZ = (dz / distance) * pullFactor;
-          updateBlackHole({ pullForce: [forceX, forceY, forceZ] });
-        }
         
         // Start blackout
         updateBlackHole({ blackoutOpacity: progress });
         
         if (progress >= 1) {
-          updateBlackHole({ phase: 'blackout', blackoutOpacity: 1, pullForce: [0, 0, 0] });
+          updateBlackHole({ phase: 'blackout', blackoutOpacity: 1 });
           phaseTimer.current = 0;
         }
         break;
