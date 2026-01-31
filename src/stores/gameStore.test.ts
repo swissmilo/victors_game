@@ -243,7 +243,7 @@ describe('gameStore', () => {
     });
 
     it('should export tsunami constants', () => {
-      expect(TSUNAMI_COUNTDOWN).toBe(60);
+      expect(TSUNAMI_COUNTDOWN).toBe(30);  // Reduced for testing
       expect(BASE_WATER_LEVEL).toBe(32);
       expect(MAX_WATER_LEVEL).toBe(70);
     });

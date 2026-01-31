@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGameStore, EARTHQUAKE_COUNTDOWN, TSUNAMI_COUNTDOWN } from '@/stores';
+import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN } from '@/stores';
 import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk } from '@/types';
 
 // Earthquake timing configuration
@@ -33,7 +33,7 @@ export function EarthquakeSystem() {
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
-  const updateTsunami = useGameStore((state) => state.updateTsunami);
+  const updateBlackHole = useGameStore((state) => state.updateBlackHole);
   
   const phaseTimer = useRef(0);
   const destructionSeed = useRef(0);
@@ -132,11 +132,11 @@ export function EarthquakeSystem() {
           });
           phaseTimer.current = 0;
           
-          // Switch to tsunami
+          // Switch to black hole
           switchToNextCatastrophe();
-          updateTsunami({
+          updateBlackHole({
             phase: 'countdown',
-            countdown: TSUNAMI_COUNTDOWN,
+            countdown: BLACK_HOLE_COUNTDOWN,
           });
         }
         break;

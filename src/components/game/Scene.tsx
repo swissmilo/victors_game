@@ -5,6 +5,7 @@ import { Player } from './Player';
 import { World } from './World';
 import { BlockSelector } from './BlockSelector';
 import { EarthquakeSystem } from './EarthquakeSystem';
+import { BlackHoleSystem } from './BlackHoleSystem';
 import { TsunamiSystem } from './TsunamiSystem';
 import { BloodRainSystem } from './BloodRainSystem';
 
@@ -51,6 +52,7 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       
       {/* Catastrophe systems */}
       <EarthquakeSystem />
+      <BlackHoleSystem />
       <TsunamiSystem />
       <BloodRainSystem />
     </>

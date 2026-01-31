@@ -8,7 +8,7 @@ interface InventorySlot {
 }
 
 // Catastrophe types
-export type CatastropheType = 'earthquake' | 'tsunami' | 'blood_rain';
+export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain';
 
 // Tsunami phases
 export type TsunamiPhase = 'countdown' | 'rising' | 'peak' | 'falling';
@@ -29,6 +29,18 @@ interface EarthquakeState {
   countdown: number;        // Seconds until earthquake
   intensity: number;        // 0-1, controls shake intensity
   hasDestroyedBlocks: boolean;  // Whether blocks have been destroyed this cycle
+}
+
+// Black hole phases
+export type BlackHolePhase = 'countdown' | 'appearing' | 'pulling' | 'consuming' | 'blackout';
+
+interface BlackHoleState {
+  phase: BlackHolePhase;
+  countdown: number;        // Seconds until black hole
+  position: [number, number, number];  // World position of black hole
+  intensity: number;        // 0-1, controls pull strength and visual size
+  blackoutOpacity: number;  // 0-1, for screen blackout
+  pullForce: [number, number, number];  // Force applied to player each frame
 }
 
 // Blood rain phases
@@ -52,6 +64,7 @@ interface GameState {
   // Player state
   playerPosition: [number, number, number];
   playerRotation: [number, number];
+  respawnPosition: [number, number, number] | null;  // When set, Player teleports here and clears it
   
   // Inventory
   inventory: InventorySlot[];
@@ -76,6 +89,9 @@ interface GameState {
   // Earthquake state
   earthquake: EarthquakeState;
   
+  // Black hole state
+  blackHole: BlackHoleState;
+  
   // Tsunami state
   tsunami: TsunamiState;
   
@@ -85,6 +101,7 @@ interface GameState {
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
   setPlayerRotation: (rotation: [number, number]) => void;
+  setRespawnPosition: (position: [number, number, number] | null) => void;
   setHotbarSelection: (slot: number) => void;
   addToInventory: (blockType: BlockType, count?: number) => void;
   removeFromInventory: (slot: number, count?: number) => boolean;
@@ -107,6 +124,10 @@ interface GameState {
   // Earthquake actions
   updateEarthquake: (updates: Partial<EarthquakeState>) => void;
   resetEarthquake: () => void;
+  
+  // Black hole actions
+  updateBlackHole: (updates: Partial<BlackHoleState>) => void;
+  resetBlackHole: () => void;
   
   // Tsunami actions
   updateTsunami: (updates: Partial<TsunamiState>) => void;
@@ -136,10 +157,13 @@ const INITIAL_INVENTORY: InventorySlot[] = [
 ];
 
 // Catastrophe configuration
-const CATASTROPHE_COUNTDOWN = 60;  // 60 seconds between catastrophes
+const CATASTROPHE_COUNTDOWN = 30;  // 30 seconds between catastrophes (for testing)
 
 // Earthquake configuration
 const EARTHQUAKE_COUNTDOWN = CATASTROPHE_COUNTDOWN;
+
+// Black hole configuration
+const BLACK_HOLE_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 
 // Tsunami configuration
 const TSUNAMI_COUNTDOWN = CATASTROPHE_COUNTDOWN;
@@ -155,6 +179,15 @@ const INITIAL_EARTHQUAKE: EarthquakeState = {
   countdown: EARTHQUAKE_COUNTDOWN,
   intensity: 0,
   hasDestroyedBlocks: false,
+};
+
+const INITIAL_BLACK_HOLE: BlackHoleState = {
+  phase: 'countdown',
+  countdown: BLACK_HOLE_COUNTDOWN,
+  position: [0, 40, 0],
+  intensity: 0,
+  blackoutOpacity: 0,
+  pullForce: [0, 0, 0],
 };
 
 const INITIAL_TSUNAMI: TsunamiState = {
@@ -176,6 +209,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Initial state
   playerPosition: [0, 20, 0],
   playerRotation: [0, 0],
+  respawnPosition: null,
   inventory: INITIAL_INVENTORY,
   hotbarSelection: 0,
   chunks: new Map(),
@@ -184,9 +218,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   isFlying: false,
-  currentCatastrophe: 'earthquake',
+  currentCatastrophe: 'black_hole',
   nextCatastrophe: 'tsunami',
   earthquake: INITIAL_EARTHQUAKE,
+  blackHole: INITIAL_BLACK_HOLE,
   tsunami: INITIAL_TSUNAMI,
   bloodRain: INITIAL_BLOOD_RAIN,
 
@@ -194,6 +229,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   setPlayerPosition: (position) => set({ playerPosition: position }),
   
   setPlayerRotation: (rotation) => set({ playerRotation: rotation }),
+  
+  setRespawnPosition: (position) => set({ respawnPosition: position }),
   
   setHotbarSelection: (slot) => {
     if (slot >= 0 && slot < 9) {
@@ -320,8 +357,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   switchToNextCatastrophe: () => {
     const { currentCatastrophe } = get();
-    // Cycle: earthquake → tsunami → blood_rain → earthquake
-    const sequence: CatastropheType[] = ['earthquake', 'tsunami', 'blood_rain'];
+    // Cycle: earthquake → black_hole → tsunami → blood_rain → earthquake
+    const sequence: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain'];
     const currentIndex = sequence.indexOf(currentCatastrophe);
     const nextIndex = (currentIndex + 1) % sequence.length;
     const afterNextIndex = (currentIndex + 2) % sequence.length;
@@ -338,6 +375,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   resetEarthquake: () => set({
     earthquake: INITIAL_EARTHQUAKE,
+  }),
+  
+  updateBlackHole: (updates) => set((state) => ({
+    blackHole: { ...state.blackHole, ...updates },
+  })),
+  
+  resetBlackHole: () => set({
+    blackHole: INITIAL_BLACK_HOLE,
   }),
   
   updateTsunami: (updates) => set((state) => ({
@@ -376,13 +421,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       playerPosition: saveData.playerPosition,
       playerRotation: saveData.playerRotation,
+      respawnPosition: null,
       inventory: saveData.inventory,
       hotbarSelection: saveData.hotbarSelection,
       chunks,
       teleporters: [],  // Reset teleporters - they'll need to be re-placed
-      currentCatastrophe: 'earthquake',
+      currentCatastrophe: 'black_hole',
       nextCatastrophe: 'tsunami',
       earthquake: INITIAL_EARTHQUAKE,
+      blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,
       bloodRain: INITIAL_BLOOD_RAIN,
     });
@@ -398,6 +445,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       playerPosition: [8, 50, 8],
       playerRotation: [0, 0],
+      respawnPosition: null,
       inventory: INITIAL_INVENTORY,
       hotbarSelection: 0,
       chunks: new Map(),
@@ -405,9 +453,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       isPlaying: false,
       isPaused: false,
       isFlying: false,
-      currentCatastrophe: 'earthquake',
+      currentCatastrophe: 'black_hole',
       nextCatastrophe: 'tsunami',
       earthquake: INITIAL_EARTHQUAKE,
+      blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,
       bloodRain: INITIAL_BLOOD_RAIN,
     });
@@ -415,4 +464,4 @@ export const useGameStore = create<GameState>((set, get) => ({
 }));
 
 // Export catastrophe constants for use in components
-export { EARTHQUAKE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION };
+export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION };

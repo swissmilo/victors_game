@@ -33,7 +33,7 @@ npm run lint         # ESLint only
 src/
 ├── app/              # Next.js App Router (minimal - just entry point)
 ├── components/
-│   ├── game/         # 3D components (Game, Scene, Player, World, ChunkMesh, EarthquakeSystem, TsunamiSystem, BloodRainSystem)
+│   ├── game/         # 3D components (Game, Scene, Player, World, ChunkMesh, EarthquakeSystem, BlackHoleSystem, TsunamiSystem, BloodRainSystem)
 │   └── ui/           # 2D overlay components (Hotbar, Crosshair, WorldMenu, CatastropheTimer, UnderwaterOverlay)
 ├── hooks/            # Custom React hooks (useKeyboard, usePointerLock)
 ├── lib/              # Pure utilities (noise, worldGen, meshBuilder, textureAtlas, worldPersistence)
@@ -107,7 +107,7 @@ The mesh builder (`src/lib/meshBuilder.ts`) uses **face culling**:
 
 ### Catastrophe System
 
-Three catastrophes cycle in order: **Earthquake → Tsunami → Blood Rain**
+Four catastrophes cycle in order: **Earthquake → Black Hole → Tsunami → Blood Rain**
 
 Each catastrophe has 60-second countdown, then active phases, then transitions to the next.
 
@@ -117,6 +117,13 @@ Each catastrophe has 60-second countdown, then active phases, then transitions t
 - Incremental destruction (2 chunks/frame) to avoid frame drops
 - Screen shake via CSS animation on canvas wrapper
 - Brown/orange vignette effect during active phases
+
+#### Black Hole (`src/components/game/BlackHoleSystem.tsx`)
+- **Phases**: countdown → appearing (2s) → pulling (6s) → consuming (1s) → blackout (2s)
+- Spawns 30 blocks away from player in random direction
+- Visual: black sphere with rotating orange/yellow accretion disk rings
+- Player is pulled toward the black hole (stronger when closer)
+- Screen fades to black during consume/blackout phases
 
 #### Tsunami (`src/components/game/TsunamiSystem.tsx`)
 - **Phases**: countdown → rising → peak → falling
@@ -170,6 +177,7 @@ Single Zustand store handles:
 - Game state (isPlaying, isPaused, isFlying)
 - Catastrophe state (currentCatastrophe, nextCatastrophe)
 - Earthquake state (phase, countdown, intensity, hasDestroyedBlocks)
+- Black hole state (phase, countdown, position, intensity, blackoutOpacity)
 - Tsunami state (phase, countdown, waterLevel)
 - Blood rain state (phase, countdown, intensity)
 - Teleporter positions array
@@ -270,6 +278,7 @@ const { setPlayerPosition, addToInventory, saveGame } = useGameStore.getState();
 | `src/components/game/World.tsx` | Chunk loading/unloading/rendering |
 | `src/components/game/Player.tsx` | First-person controller with collision + portal teleport |
 | `src/components/game/EarthquakeSystem.tsx` | Earthquake mechanics and block destruction |
+| `src/components/game/BlackHoleSystem.tsx` | Black hole visual and player pull mechanics |
 | `src/components/game/TsunamiSystem.tsx` | Tsunami mechanics and water rendering |
 | `src/components/game/BloodRainSystem.tsx` | Blood rain particles and fog effects |
 | `src/components/game/BlockSelector.tsx` | Raycasting and block interaction |

@@ -25,6 +25,7 @@ export function Game() {
   const saveGame = useGameStore((state) => state.saveGame);
   const chunks = useGameStore((state) => state.chunks);
   const earthquake = useGameStore((state) => state.earthquake);
+  const blackHole = useGameStore((state) => state.blackHole);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   
   // Determine if earthquake shake should be active
@@ -32,6 +33,9 @@ export function Game() {
   const shakeClass = isEarthquakeActive 
     ? (earthquake.intensity > 0.5 ? 'animate-shake-strong' : 'animate-shake-mild')
     : '';
+  
+  // Black hole blackout opacity
+  const blackoutOpacity = currentCatastrophe === 'black_hole' ? blackHole.blackoutOpacity : 0;
 
   // Handle starting the game from menu
   const handleStartGame = useCallback(() => {
@@ -108,6 +112,13 @@ export function Game() {
               style={{
                 background: `radial-gradient(circle, transparent 40%, rgba(139, 69, 19, ${earthquake.intensity * 0.4}) 100%)`,
               }}
+            />
+          )}
+          {/* Black hole blackout overlay */}
+          {blackoutOpacity > 0 && (
+            <div 
+              className="absolute inset-0 pointer-events-none bg-black"
+              style={{ opacity: blackoutOpacity }}
             />
           )}
         </div>

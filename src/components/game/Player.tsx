@@ -37,6 +37,9 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
   const setIsFlying = useGameStore((state) => state.setIsFlying);
   const chunks = useGameStore((state) => state.chunks);
   const teleporters = useGameStore((state) => state.teleporters);
+  const blackHolePullForce = useGameStore((state) => state.blackHole.pullForce);
+  const respawnPosition = useGameStore((state) => state.respawnPosition);
+  const setRespawnPosition = useGameStore((state) => state.setRespawnPosition);
   
   const positionRef = useRef(new THREE.Vector3(8, 50, 8));
   const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
@@ -194,6 +197,13 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     // Clamp delta to prevent huge jumps
     const dt = Math.min(delta, 0.1);
     
+    // Check for respawn position (e.g., after black hole)
+    if (respawnPosition) {
+      positionRef.current.set(respawnPosition[0], respawnPosition[1], respawnPosition[2]);
+      velocityRef.current.set(0, 0, 0);
+      setRespawnPosition(null);
+    }
+    
     // Get mouse movement for camera rotation
     if (isLocked) {
       const { x: movementX, y: movementY } = consumeMovement();
@@ -220,6 +230,13 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     // Apply horizontal movement
     velocityRef.current.x = moveDirection.x;
     velocityRef.current.z = moveDirection.z;
+    
+    // Apply black hole pull force (overrides normal movement when active)
+    if (blackHolePullForce[0] !== 0 || blackHolePullForce[1] !== 0 || blackHolePullForce[2] !== 0) {
+      velocityRef.current.x += blackHolePullForce[0];
+      velocityRef.current.z += blackHolePullForce[2];
+      // Y-force handled separately below
+    }
 
     if (isFlying) {
       // Flying mode - space goes up, shift goes down
@@ -230,6 +247,11 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     } else {
       // Normal mode - apply gravity
       velocityRef.current.y -= GRAVITY * dt;
+      
+      // Apply black hole Y pull force
+      if (blackHolePullForce[1] !== 0) {
+        velocityRef.current.y += blackHolePullForce[1];
+      }
 
       // Jump
       if (keys['Space'] && isGroundedRef.current) {

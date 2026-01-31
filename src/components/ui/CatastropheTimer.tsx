@@ -5,6 +5,7 @@ import { useGameStore } from '@/stores';
 export function CatastropheTimer() {
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const earthquake = useGameStore((state) => state.earthquake);
+  const blackHole = useGameStore((state) => state.blackHole);
   const tsunami = useGameStore((state) => state.tsunami);
   const bloodRain = useGameStore((state) => state.bloodRain);
   
@@ -58,6 +59,67 @@ export function CatastropheTimer() {
             progress: intensityPercent,
             progressLabel: `Intensity: ${intensityPercent}%`,
             progressColor: 'bg-amber-400',
+          };
+      }
+    } else if (currentCatastrophe === 'black_hole') {
+      const { phase, countdown, intensity, blackoutOpacity } = blackHole;
+      const intensityPercent = Math.round(intensity * 100);
+      
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: Black Hole',
+            countdown,
+            color: 'text-purple-400',
+            bgColor: 'bg-purple-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-purple-500',
+          };
+        case 'appearing':
+          return {
+            title: 'BLACK HOLE FORMING!',
+            countdown: 0,
+            color: 'text-purple-500',
+            bgColor: 'bg-purple-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'Singularity forming...',
+            progressColor: 'bg-purple-600',
+          };
+        case 'pulling':
+          return {
+            title: 'GRAVITATIONAL PULL!',
+            countdown: 0,
+            color: 'text-purple-600',
+            bgColor: 'bg-purple-900/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: 'Being pulled in!',
+            progressColor: 'bg-purple-700',
+          };
+        case 'consuming':
+          return {
+            title: 'CONSUMED!',
+            countdown: 0,
+            color: 'text-black',
+            bgColor: 'bg-purple-900/90',
+            showProgress: true,
+            progress: Math.round(blackoutOpacity * 100),
+            progressLabel: 'Entering the void...',
+            progressColor: 'bg-black',
+          };
+        case 'blackout':
+          return {
+            title: '',
+            countdown: 0,
+            color: 'text-black',
+            bgColor: 'bg-black',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-black',
           };
       }
     } else if (currentCatastrophe === 'tsunami') {
