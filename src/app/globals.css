@@ -45,3 +45,38 @@ canvas {
   width: 100%;
   height: 100%;
 }
+
+/* Earthquake shake animations */
+@keyframes shake-mild {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-1px, -1px); }
+  20% { transform: translate(1px, 0); }
+  30% { transform: translate(-1px, 1px); }
+  40% { transform: translate(0, -1px); }
+  50% { transform: translate(1px, 1px); }
+  60% { transform: translate(-1px, 0); }
+  70% { transform: translate(1px, -1px); }
+  80% { transform: translate(-1px, 1px); }
+  90% { transform: translate(0, -1px); }
+}
+
+@keyframes shake-strong {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-3px, -2px); }
+  20% { transform: translate(2px, 1px); }
+  30% { transform: translate(-2px, 3px); }
+  40% { transform: translate(1px, -2px); }
+  50% { transform: translate(3px, 2px); }
+  60% { transform: translate(-2px, -1px); }
+  70% { transform: translate(2px, -3px); }
+  80% { transform: translate(-3px, 2px); }
+  90% { transform: translate(1px, -1px); }
+}
+
+.animate-shake-mild {
+  animation: shake-mild 0.1s infinite;
+}
+
+.animate-shake-strong {
+  animation: shake-strong 0.08s infinite;
+}

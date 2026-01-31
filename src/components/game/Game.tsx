@@ -24,6 +24,14 @@ export function Game() {
   const isFlying = useGameStore((state) => state.isFlying);
   const saveGame = useGameStore((state) => state.saveGame);
   const chunks = useGameStore((state) => state.chunks);
+  const earthquake = useGameStore((state) => state.earthquake);
+  const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
+  
+  // Determine if earthquake shake should be active
+  const isEarthquakeActive = currentCatastrophe === 'earthquake' && earthquake.phase !== 'countdown';
+  const shakeClass = isEarthquakeActive 
+    ? (earthquake.intensity > 0.5 ? 'animate-shake-strong' : 'animate-shake-mild')
+    : '';
 
   // Handle starting the game from menu
   const handleStartGame = useCallback(() => {
@@ -84,14 +92,25 @@ export function Game() {
       onClick={handleClick}
     >
       {gameStarted && (
-        <Canvas
-          camera={{ fov: 75, near: 0.1, far: 1000 }}
-          gl={{ antialias: true }}
-        >
-          <Suspense fallback={null}>
-            <Scene isLocked={isLocked} consumeMovement={consumeMovement} />
-          </Suspense>
-        </Canvas>
+        <div className={`w-full h-full ${shakeClass}`}>
+          <Canvas
+            camera={{ fov: 75, near: 0.1, far: 1000 }}
+            gl={{ antialias: true }}
+          >
+            <Suspense fallback={null}>
+              <Scene isLocked={isLocked} consumeMovement={consumeMovement} />
+            </Suspense>
+          </Canvas>
+          {/* Earthquake vignette overlay */}
+          {isEarthquakeActive && (
+            <div 
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, transparent 40%, rgba(139, 69, 19, ${earthquake.intensity * 0.4}) 100%)`,
+              }}
+            />
+          )}
+        </div>
       )}
       
       {/* World selection menu */}

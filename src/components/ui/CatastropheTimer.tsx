@@ -4,12 +4,63 @@ import { useGameStore } from '@/stores';
 
 export function CatastropheTimer() {
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
+  const earthquake = useGameStore((state) => state.earthquake);
   const tsunami = useGameStore((state) => state.tsunami);
   const bloodRain = useGameStore((state) => state.bloodRain);
   
   // Get current countdown and phase based on active catastrophe
   const getDisplayInfo = () => {
-    if (currentCatastrophe === 'tsunami') {
+    if (currentCatastrophe === 'earthquake') {
+      const { phase, countdown, intensity } = earthquake;
+      const intensityPercent = Math.round(intensity * 100);
+      
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: Earthquake',
+            countdown,
+            color: 'text-amber-400',
+            bgColor: 'bg-amber-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-amber-500',
+          };
+        case 'rumbling':
+          return {
+            title: 'GROUND RUMBLING!',
+            countdown: 0,
+            color: 'text-amber-500',
+            bgColor: 'bg-amber-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'Tremors building...',
+            progressColor: 'bg-amber-600',
+          };
+        case 'quake':
+          return {
+            title: 'EARTHQUAKE!',
+            countdown: 0,
+            color: 'text-orange-600',
+            bgColor: 'bg-orange-900/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: 'Blocks crumbling!',
+            progressColor: 'bg-orange-700',
+          };
+        case 'settling':
+          return {
+            title: 'Settling...',
+            countdown: 0,
+            color: 'text-amber-300',
+            bgColor: 'bg-amber-900/40',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: `Intensity: ${intensityPercent}%`,
+            progressColor: 'bg-amber-400',
+          };
+      }
+    } else if (currentCatastrophe === 'tsunami') {
       const { phase, countdown, waterLevel, baseWaterLevel, maxWaterLevel } = tsunami;
       const risePercent = Math.round(
         ((waterLevel - baseWaterLevel) / (maxWaterLevel - baseWaterLevel)) * 100

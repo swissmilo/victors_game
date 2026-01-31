@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore, BLOOD_RAIN_COUNTDOWN, TSUNAMI_COUNTDOWN } from '@/stores';
+import { useGameStore, BLOOD_RAIN_COUNTDOWN, EARTHQUAKE_COUNTDOWN } from '@/stores';
 
 // Blood rain timing configuration
 const FADE_IN_DURATION = 3;     // Seconds to fade in
@@ -49,7 +49,7 @@ export function BloodRainSystem() {
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
-  const updateTsunami = useGameStore((state) => state.updateTsunami);
+  const updateEarthquake = useGameStore((state) => state.updateEarthquake);
   const playerPosition = useGameStore((state) => state.playerPosition);
   
   const { scene } = useThree();
@@ -131,11 +131,11 @@ export function BloodRainSystem() {
           });
           phaseTimer.current = 0;
           
-          // Switch to tsunami and start its countdown
+          // Switch to earthquake and start its countdown
           switchToNextCatastrophe();
-          updateTsunami({
+          updateEarthquake({
             phase: 'countdown',
-            countdown: TSUNAMI_COUNTDOWN,
+            countdown: EARTHQUAKE_COUNTDOWN,
           });
         }
         break;

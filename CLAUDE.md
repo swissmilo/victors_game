@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A Minecraft-style browser-based 3D voxel game built with Next.js, Three.js, and React Three Fiber. Players can explore procedurally generated terrain with structures (haunted mansion, war tank, nether portal), mine blocks, build structures, and survive periodic tsunamis.
+A Minecraft-style browser-based 3D voxel game built with Next.js, Three.js, and React Three Fiber. Players can explore procedurally generated terrain with structures (haunted mansion, war tank, nether portal), mine blocks, build structures, and survive periodic catastrophes (earthquakes, tsunamis, blood rain).
 
 ## Tech Stack
 
@@ -33,8 +33,8 @@ npm run lint         # ESLint only
 src/
 ├── app/              # Next.js App Router (minimal - just entry point)
 ├── components/
-│   ├── game/         # 3D components (Game, Scene, Player, World, ChunkMesh, TsunamiSystem)
-│   └── ui/           # 2D overlay components (Hotbar, Crosshair, WorldMenu, TsunamiTimer, UnderwaterOverlay)
+│   ├── game/         # 3D components (Game, Scene, Player, World, ChunkMesh, EarthquakeSystem, TsunamiSystem, BloodRainSystem)
+│   └── ui/           # 2D overlay components (Hotbar, Crosshair, WorldMenu, CatastropheTimer, UnderwaterOverlay)
 ├── hooks/            # Custom React hooks (useKeyboard, usePointerLock)
 ├── lib/              # Pure utilities (noise, worldGen, meshBuilder, textureAtlas, worldPersistence)
 ├── stores/           # Zustand stores
@@ -71,7 +71,7 @@ const blockType = chunkData[index];
 - Texture indices can be a single number (all faces) or array of 6 (per-face)
 - Face order: `[top, bottom, front, back, left, right]`
 
-**Block Types**: AIR, GRASS, DIRT, STONE, WOOD, PLANKS, COBBLESTONE, SAND, LEAVES, METAL, OBSIDIAN, PORTAL
+**Block Types**: AIR, GRASS, DIRT, STONE, WOOD, PLANKS, COBBLESTONE, SAND, LEAVES, METAL, OBSIDIAN, PORTAL, TELEPORTER
 
 ### Mesh Generation
 
@@ -105,15 +105,30 @@ The mesh builder (`src/lib/meshBuilder.ts`) uses **face culling**:
 - No gravity when flying
 - Blue "Flying" indicator shown in UI
 
-### Tsunami System
+### Catastrophe System
 
-Periodic tsunami mechanic (`src/components/game/TsunamiSystem.tsx`):
-- **Countdown phase**: 60 seconds between tsunamis
-- **Rising phase**: Water rises from sea level (32) to max height (70)
-- **Peak phase**: Brief pause at maximum
-- **Falling phase**: Water returns to base level
+Three catastrophes cycle in order: **Earthquake → Tsunami → Blood Rain**
+
+Each catastrophe has 60-second countdown, then active phases, then transitions to the next.
+
+#### Earthquake (`src/components/game/EarthquakeSystem.tsx`)
+- **Phases**: countdown → rumbling (2s) → quake (4s) → settling (2s)
+- Destroys 25% of STONE and COBBLESTONE blocks randomly
+- Incremental destruction (2 chunks/frame) to avoid frame drops
+- Screen shake via CSS animation on canvas wrapper
+- Brown/orange vignette effect during active phases
+
+#### Tsunami (`src/components/game/TsunamiSystem.tsx`)
+- **Phases**: countdown → rising → peak → falling
+- Water rises from sea level (32) to max height (70)
 - Destroys WOOD and PLANKS blocks as water rises
 - Water plane has depth-write disabled to prevent z-fighting
+
+#### Blood Rain (`src/components/game/BloodRainSystem.tsx`)
+- **Phases**: countdown → starting (3s) → active (15s) → ending (3s)
+- Dark red fog color transition
+- 5000 red particle rain drops
+- Red water plane at ground level
 
 ### Underwater Effects
 
@@ -123,6 +138,19 @@ When player is below water level (`src/components/ui/UnderwaterOverlay.tsx`):
 - Rising bubble particles
 - Depth indicator showing blocks below surface
 - Vignette effect
+
+### Portal & Teleporter System
+
+**Nether Portals**: Two linked portals (outside and inside haunted mansion)
+- Step into portal block to teleport to the other portal
+- 2-second cooldown between teleports
+- Sets player facing direction on exit
+
+**Teleporter Blocks** (inventory slot 9):
+- Place multiple teleporter blocks in the world
+- Jump on any teleporter to randomly teleport to another
+- Requires at least 2 teleporters placed to function
+- 1-second cooldown between uses
 
 ### World Persistence
 
@@ -140,7 +168,11 @@ Single Zustand store handles:
 - Inventory (9 slots, max 64 per stack)
 - Loaded chunks (`Map<string, Chunk>`)
 - Game state (isPlaying, isPaused, isFlying)
+- Catastrophe state (currentCatastrophe, nextCatastrophe)
+- Earthquake state (phase, countdown, intensity, hasDestroyedBlocks)
 - Tsunami state (phase, countdown, waterLevel)
+- Blood rain state (phase, countdown, intensity)
+- Teleporter positions array
 - Persistence actions (saveGame, loadGame, resetWorld)
 
 ```typescript
@@ -230,14 +262,17 @@ const { setPlayerPosition, addToInventory, saveGame } = useGameStore.getState();
 | `src/types/blocks.ts` | Block enum and definitions |
 | `src/types/world.ts` | Chunk types and utility functions |
 | `src/lib/meshBuilder.ts` | Converts chunk data to Three.js geometry |
-| `src/lib/worldGen.ts` | Procedural terrain + structures |
+| `src/lib/worldGen.ts` | Procedural terrain + structures + portals |
 | `src/lib/noise.ts` | Perlin noise implementation |
-| `src/lib/worldPersistence.ts` | Save/load world to localStorage |
+| `src/lib/worldPersistence.ts` | Save/load world to localStorage (RLE compressed) |
 | `src/lib/textureAtlas.ts` | Texture loading and atlas generation |
-| `src/stores/gameStore.ts` | Global game state |
+| `src/stores/gameStore.ts` | Global game state + catastrophe management |
 | `src/components/game/World.tsx` | Chunk loading/unloading/rendering |
-| `src/components/game/Player.tsx` | First-person controller with collision |
+| `src/components/game/Player.tsx` | First-person controller with collision + portal teleport |
+| `src/components/game/EarthquakeSystem.tsx` | Earthquake mechanics and block destruction |
 | `src/components/game/TsunamiSystem.tsx` | Tsunami mechanics and water rendering |
+| `src/components/game/BloodRainSystem.tsx` | Blood rain particles and fog effects |
 | `src/components/game/BlockSelector.tsx` | Raycasting and block interaction |
 | `src/components/ui/WorldMenu.tsx` | Start screen with load/new world options |
+| `src/components/ui/CatastropheTimer.tsx` | Catastrophe countdown and progress display |
 | `src/components/ui/UnderwaterOverlay.tsx` | Underwater visual effects |

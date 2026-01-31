@@ -4,6 +4,7 @@ import { Sky, Stats } from '@react-three/drei';
 import { Player } from './Player';
 import { World } from './World';
 import { BlockSelector } from './BlockSelector';
+import { EarthquakeSystem } from './EarthquakeSystem';
 import { TsunamiSystem } from './TsunamiSystem';
 import { BloodRainSystem } from './BloodRainSystem';
 
@@ -49,6 +50,7 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       <World renderDistance={8} unloadDistance={12} />
       
       {/* Catastrophe systems */}
+      <EarthquakeSystem />
       <TsunamiSystem />
       <BloodRainSystem />
     </>
