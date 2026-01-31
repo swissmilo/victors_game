@@ -48,6 +48,7 @@ interface GameState {
   getChunk: (position: ChunkPosition) => Chunk | undefined;
   setChunk: (position: ChunkPosition, chunk: Chunk) => void;
   markChunkDirty: (position: ChunkPosition) => void;
+  unloadDistantChunks: (playerChunkX: number, playerChunkZ: number, maxDistance: number) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setIsPaused: (isPaused: boolean) => void;
   setIsFlying: (isFlying: boolean) => void;
@@ -174,6 +175,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (chunk) {
       const newChunks = new Map(chunks);
       newChunks.set(key, { ...chunk, isDirty: true });
+      set({ chunks: newChunks });
+    }
+  },
+  
+  unloadDistantChunks: (playerChunkX, playerChunkZ, maxDistance) => {
+    const { chunks } = get();
+    const keysToRemove: string[] = [];
+    
+    chunks.forEach((chunk, key) => {
+      const dx = chunk.position.x - playerChunkX;
+      const dz = chunk.position.z - playerChunkZ;
+      const distance = Math.max(Math.abs(dx), Math.abs(dz));
+      
+      if (distance > maxDistance) {
+        keysToRemove.push(key);
+      }
+    });
+    
+    if (keysToRemove.length > 0) {
+      const newChunks = new Map(chunks);
+      for (const key of keysToRemove) {
+        newChunks.delete(key);
+      }
       set({ chunks: newChunks });
     }
   },

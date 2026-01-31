@@ -1,12 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { useGameStore } from './gameStore';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { useGameStore, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL } from './gameStore';
 import { BlockType } from '@/types';
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+};
+Object.defineProperty(global, 'localStorage', { value: localStorageMock });
 
 describe('gameStore', () => {
   beforeEach(() => {
     // Reset store to initial state before each test
     useGameStore.setState({
-      playerPosition: [0, 20, 0],
+      playerPosition: [8, 50, 8],
       playerRotation: [0, 0],
       hotbarSelection: 0,
       inventory: [
@@ -23,7 +32,18 @@ describe('gameStore', () => {
       chunks: new Map(),
       isPlaying: false,
       isPaused: false,
+      isFlying: false,
+      tsunami: {
+        phase: 'countdown',
+        countdown: TSUNAMI_COUNTDOWN,
+        waterLevel: BASE_WATER_LEVEL,
+        baseWaterLevel: BASE_WATER_LEVEL,
+        maxWaterLevel: MAX_WATER_LEVEL,
+      },
     });
+    
+    // Clear localStorage mocks
+    vi.clearAllMocks();
   });
 
   describe('player position', () => {
@@ -182,6 +202,130 @@ describe('gameStore', () => {
       
       setIsPaused(false);
       expect(useGameStore.getState().isPaused).toBe(false);
+    });
+
+    it('should update isFlying state', () => {
+      const { setIsFlying } = useGameStore.getState();
+      
+      setIsFlying(true);
+      expect(useGameStore.getState().isFlying).toBe(true);
+      
+      setIsFlying(false);
+      expect(useGameStore.getState().isFlying).toBe(false);
+    });
+  });
+
+  describe('tsunami state', () => {
+    it('should update tsunami state partially', () => {
+      const { updateTsunami } = useGameStore.getState();
+      
+      updateTsunami({ phase: 'rising', waterLevel: 40 });
+      
+      const tsunami = useGameStore.getState().tsunami;
+      expect(tsunami.phase).toBe('rising');
+      expect(tsunami.waterLevel).toBe(40);
+      expect(tsunami.countdown).toBe(TSUNAMI_COUNTDOWN); // Unchanged
+    });
+
+    it('should reset tsunami to initial state', () => {
+      const { updateTsunami, resetTsunami } = useGameStore.getState();
+      
+      // Modify tsunami state
+      updateTsunami({ phase: 'peak', waterLevel: 70, countdown: 0 });
+      
+      // Reset
+      resetTsunami();
+      
+      const tsunami = useGameStore.getState().tsunami;
+      expect(tsunami.phase).toBe('countdown');
+      expect(tsunami.countdown).toBe(TSUNAMI_COUNTDOWN);
+      expect(tsunami.waterLevel).toBe(BASE_WATER_LEVEL);
+    });
+
+    it('should export tsunami constants', () => {
+      expect(TSUNAMI_COUNTDOWN).toBe(60);
+      expect(BASE_WATER_LEVEL).toBe(32);
+      expect(MAX_WATER_LEVEL).toBe(70);
+    });
+  });
+
+  describe('chunk unloading', () => {
+    it('should unload chunks beyond max distance', () => {
+      const { setChunk, unloadDistantChunks, getChunk } = useGameStore.getState();
+      
+      // Add chunks at various distances
+      const nearChunk = {
+        position: { x: 0, z: 0 },
+        data: new Uint8Array(16 * 16 * 64),
+        isDirty: false,
+      };
+      const farChunk = {
+        position: { x: 20, z: 20 },
+        data: new Uint8Array(16 * 16 * 64),
+        isDirty: false,
+      };
+      
+      setChunk({ x: 0, z: 0 }, nearChunk);
+      setChunk({ x: 20, z: 20 }, farChunk);
+      
+      // Unload chunks beyond distance 5 from player at (0, 0)
+      unloadDistantChunks(0, 0, 5);
+      
+      // Near chunk should remain
+      expect(getChunk({ x: 0, z: 0 })).toBeDefined();
+      
+      // Far chunk should be unloaded
+      expect(getChunk({ x: 20, z: 20 })).toBeUndefined();
+    });
+
+    it('should not unload chunks within distance', () => {
+      const { setChunk, unloadDistantChunks, getChunk } = useGameStore.getState();
+      
+      const chunk1 = {
+        position: { x: 2, z: 2 },
+        data: new Uint8Array(16 * 16 * 64),
+        isDirty: false,
+      };
+      const chunk2 = {
+        position: { x: -3, z: 3 },
+        data: new Uint8Array(16 * 16 * 64),
+        isDirty: false,
+      };
+      
+      setChunk({ x: 2, z: 2 }, chunk1);
+      setChunk({ x: -3, z: 3 }, chunk2);
+      
+      // Unload chunks beyond distance 5
+      unloadDistantChunks(0, 0, 5);
+      
+      // Both should remain (within distance)
+      expect(getChunk({ x: 2, z: 2 })).toBeDefined();
+      expect(getChunk({ x: -3, z: 3 })).toBeDefined();
+    });
+  });
+
+  describe('world reset', () => {
+    it('should reset world to initial state', () => {
+      const { setPlayerPosition, setChunk, setIsFlying, updateTsunami, resetWorld } = useGameStore.getState();
+      
+      // Modify various state
+      setPlayerPosition([100, 100, 100]);
+      setIsFlying(true);
+      updateTsunami({ phase: 'rising', waterLevel: 50 });
+      setChunk({ x: 0, z: 0 }, {
+        position: { x: 0, z: 0 },
+        data: new Uint8Array(16 * 16 * 64),
+        isDirty: false,
+      });
+      
+      // Reset
+      resetWorld();
+      
+      const state = useGameStore.getState();
+      expect(state.playerPosition).toEqual([8, 50, 8]);
+      expect(state.isFlying).toBe(false);
+      expect(state.chunks.size).toBe(0);
+      expect(state.tsunami.phase).toBe('countdown');
     });
   });
 });

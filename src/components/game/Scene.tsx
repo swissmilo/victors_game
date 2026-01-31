@@ -35,8 +35,8 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
         azimuth={0.25}
       />
       
-      {/* Fog for distance */}
-      <fog attach="fog" args={['#87CEEB', 80, 250]} />
+      {/* Fog for distance - starts at 100 blocks, fades to 180 */}
+      <fog attach="fog" args={['#87CEEB', 100, 180]} />
       
       {/* Player controller */}
       <Player isLocked={isLocked} consumeMovement={consumeMovement} />
@@ -44,8 +44,8 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       {/* Block selection/interaction */}
       <BlockSelector enabled={isLocked} />
       
-      {/* Voxel world */}
-      <World renderDistance={3} />
+      {/* Voxel world - render distance 8 = ~128 blocks, unload at 12 */}
+      <World renderDistance={8} unloadDistance={12} />
       
       {/* Tsunami system */}
       <TsunamiSystem />

@@ -2,9 +2,9 @@
 
 import { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { ChunkData, ChunkPosition, CHUNK_SIZE } from '@/types';
+import { ChunkData, ChunkPosition, CHUNK_SIZE, CHUNK_HEIGHT } from '@/types';
 import { buildChunkMesh, createChunkGeometry } from '@/lib/meshBuilder';
-import { getAtlasTexture } from '@/lib/textureAtlas';
+import { getSharedChunkMaterial } from '@/lib/textureAtlas';
 
 interface ChunkMeshProps {
   position: ChunkPosition;
@@ -17,17 +17,24 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
   // Build mesh geometry from chunk data
   const geometry = useMemo(() => {
     const meshData = buildChunkMesh(data);
-    return createChunkGeometry(meshData);
+    const geo = createChunkGeometry(meshData);
+    
+    // Set explicit bounding box for frustum culling optimization
+    // This prevents Three.js from recalculating it every frame
+    geo.boundingBox = new THREE.Box3(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE)
+    );
+    
+    // Compute bounding sphere from the box for faster frustum checks
+    geo.boundingSphere = new THREE.Sphere();
+    geo.boundingBox.getBoundingSphere(geo.boundingSphere);
+    
+    return geo;
   }, [data]);
   
-  // Create material with texture atlas
-  const material = useMemo(() => {
-    const texture = getAtlasTexture();
-    return new THREE.MeshLambertMaterial({
-      map: texture,
-      vertexColors: true, // Used for face shading
-    });
-  }, []);
+  // Use shared material across all chunks (reduces GPU memory and draw calls)
+  const material = useMemo(() => getSharedChunkMaterial(), []);
   
   // World offset for this chunk
   const worldX = position.x * CHUNK_SIZE;
@@ -40,11 +47,13 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
     };
   }, [geometry]);
   
-  // Store chunk info on mesh for raycasting
+  // Store chunk info on mesh for raycasting and enable frustum culling
   useEffect(() => {
     if (meshRef.current) {
       meshRef.current.userData.chunkPosition = position;
       meshRef.current.userData.chunkData = data;
+      // Ensure frustum culling is enabled (it's on by default, but be explicit)
+      meshRef.current.frustumCulled = true;
     }
   }, [position, data]);
   
@@ -54,6 +63,7 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
       geometry={geometry} 
       material={material} 
       position={[worldX, 0, worldZ]}
+      frustumCulled={true}
     />
   );
 }

@@ -388,3 +388,21 @@ export function getTextureUVs(textureIndex: number): [number, number, number, nu
 
 // Re-export constants for use in meshBuilder
 export { ATLAS_COLS as TEXTURES_PER_ROW };
+
+// Shared material instance for all chunk meshes (reduces GPU memory)
+let sharedChunkMaterial: THREE.MeshLambertMaterial | null = null;
+
+/**
+ * Get a shared material for chunk rendering
+ * Using a single material for all chunks improves batching and reduces memory
+ */
+export function getSharedChunkMaterial(): THREE.MeshLambertMaterial {
+  if (!sharedChunkMaterial) {
+    const texture = getAtlasTexture();
+    sharedChunkMaterial = new THREE.MeshLambertMaterial({
+      map: texture,
+      vertexColors: true,
+    });
+  }
+  return sharedChunkMaterial;
+}
