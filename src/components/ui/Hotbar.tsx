@@ -87,14 +87,18 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
   const slots = inventory.slice(0, 9);
 
   // Same pattern as MobileControls: outer wrapper (pointer-events-auto z-20), inner absolute positioned
-  // Use bottom-24 left-8/right-8 spacing to align with joystick/jump row
-  const innerPositionClass = isMobile ? 'absolute bottom-24 left-1/2 -translate-x-1/2' : 'absolute bottom-4 left-1/2 -translate-x-1/2';
+  // Use bottom-24 to align with joystick/jump row; on phone offset right from center (away from joystick)
+  const innerPositionClass = isMobile
+    ? isPhoneLayout
+      ? 'absolute bottom-24 left-[calc(50%+2.5rem)] -translate-x-1/2'  // iPhone: right of center
+      : 'absolute bottom-24 left-1/2 -translate-x-1/2'                 // iPad: centered
+    : 'absolute bottom-4 left-1/2 -translate-x-1/2';
 
   // Phone: single block, tap to cycle through 9 slots
   if (isPhoneLayout) {
     const slot = slots[hotbarSelection];
     return (
-      <div className="pointer-events-auto z-20">
+      <div className="pointer-events-auto z-20 touch-manipulation" style={{ touchAction: 'manipulation' }}>
         <div className={innerPositionClass}>
           <button
             type="button"
@@ -120,7 +124,7 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   // Tablet (mobile): full hotbar with touch to select. Desktop: full hotbar (keys only).
   return (
-    <div className="pointer-events-auto z-20">
+    <div className="pointer-events-auto z-20 touch-manipulation" style={{ touchAction: 'manipulation' }}>
       <div className={`${innerPositionClass} flex gap-1`}>
       {slots.map((slot, index) => {
         const isSelected = index === hotbarSelection;

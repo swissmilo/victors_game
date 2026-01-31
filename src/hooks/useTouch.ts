@@ -42,7 +42,7 @@ const HOLD_THRESHOLD = 400;
 const HOLD_MAX_MOVEMENT = 15;
 const LOOK_SENSITIVITY = 3.0;
 
-// Check if a touch position is in the control areas (joystick or jump button)
+// Check if a touch position is in the control areas (joystick, jump button, or hotbar)
 function isInControlArea(x: number, y: number): boolean {
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
@@ -50,7 +50,9 @@ function isInControlArea(x: number, y: number): boolean {
   const isInBottomControls = y > screenHeight - bottomControlsHeight;
   const isInLeftControls = x < 180;  // Joystick area
   const isInRightControls = x > screenWidth - 120;  // Jump button area
-  return isInBottomControls && (isInLeftControls || isInRightControls);
+  // Hotbar: center-bottom (single block on phone, full bar on tablet); exclude center 50% of bottom strip
+  const isInHotbarArea = isInBottomControls && x >= screenWidth * 0.25 && x <= screenWidth * 0.75;
+  return (isInBottomControls && (isInLeftControls || isInRightControls)) || isInHotbarArea;
 }
 
 export function useTouch(containerRef: React.RefObject<HTMLElement | null>): UseTouchReturn {
