@@ -144,17 +144,6 @@ const { setPlayerPosition, addToInventory } = useGameStore.getState();
 3. **Chunk Boundaries**: Blocks at edges need neighbor chunk data for proper face culling (not yet implemented)
 4. **Memory**: Dispose Three.js objects when unmounting components
 
-## Roadmap Reference
-
-### Completed
-- [x] Phase 1: Project setup, 3D scene, first-person controls
-- [x] Phase 2: Chunk-based voxel world, block textures, terrain generation
-- [x] Phase 3: Raycasting for block selection, mining (left-click), placing (right-click)
-
-### Next Up
-- [ ] Phase 4: Physics integration (player-block collision)
-- [ ] Phase 5: Multi-chunk optimization, persistence, polish
-
 ## File Quick Reference
 
 | File | Purpose |

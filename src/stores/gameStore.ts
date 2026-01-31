@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { BlockType, Chunk, ChunkPosition, chunkPositionToKey } from '@/types';
+import { saveWorld, loadWorld, convertLoadedChunks, hasSavedWorld } from '@/lib/worldPersistence';
 
 interface InventorySlot {
   blockType: BlockType;
@@ -54,6 +55,12 @@ interface GameState {
   // Tsunami actions
   updateTsunami: (updates: Partial<TsunamiState>) => void;
   resetTsunami: () => void;
+  
+  // Persistence actions
+  saveGame: (worldId?: string) => boolean;
+  loadGame: (worldId?: string) => boolean;
+  hasExistingSave: (worldId?: string) => boolean;
+  resetWorld: () => void;
 }
 
 const INITIAL_INVENTORY: InventorySlot[] = [
@@ -184,6 +191,53 @@ export const useGameStore = create<GameState>((set, get) => ({
   resetTsunami: () => set({
     tsunami: INITIAL_TSUNAMI,
   }),
+  
+  saveGame: (worldId = 'default') => {
+    const state = get();
+    return saveWorld(
+      worldId,
+      state.playerPosition,
+      state.playerRotation,
+      state.inventory,
+      state.hotbarSelection,
+      state.chunks
+    );
+  },
+  
+  loadGame: (worldId = 'default') => {
+    const saveData = loadWorld(worldId);
+    if (!saveData) return false;
+    
+    const chunks = convertLoadedChunks(saveData.chunks);
+    set({
+      playerPosition: saveData.playerPosition,
+      playerRotation: saveData.playerRotation,
+      inventory: saveData.inventory,
+      hotbarSelection: saveData.hotbarSelection,
+      chunks,
+      tsunami: INITIAL_TSUNAMI,
+    });
+    
+    return true;
+  },
+  
+  hasExistingSave: (worldId = 'default') => {
+    return hasSavedWorld(worldId);
+  },
+  
+  resetWorld: () => {
+    set({
+      playerPosition: [8, 50, 8],
+      playerRotation: [0, 0],
+      inventory: INITIAL_INVENTORY,
+      hotbarSelection: 0,
+      chunks: new Map(),
+      isPlaying: false,
+      isPaused: false,
+      isFlying: false,
+      tsunami: INITIAL_TSUNAMI,
+    });
+  },
 }));
 
 // Export tsunami constants for use in components
