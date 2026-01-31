@@ -232,7 +232,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const saveData = loadWorld(worldId);
     if (!saveData) return false;
     
-    const chunks = convertLoadedChunks(saveData.chunks);
+    const chunks = convertLoadedChunks(saveData.chunks, saveData.version);
     set({
       playerPosition: saveData.playerPosition,
       playerRotation: saveData.playerRotation,

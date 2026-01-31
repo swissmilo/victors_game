@@ -20,6 +20,21 @@ const MANSION_ORIGIN = { x: 25, z: 20 };
 const MANSION_WIDTH = 40;  // Total width including towers
 const MANSION_DEPTH = 24;  // Total depth
 
+// Portal system - pairs of linked portals
+export interface PortalLocation {
+  id: string;
+  linkedTo: string;
+  // World coordinates of the portal interior (where player can stand)
+  x: number;
+  y: number;  // Base Y (ground level)
+  z: number;
+  // Facing direction for exit (which way player faces after teleporting)
+  exitYaw: number;
+}
+
+// Portal registry - will be populated during world generation
+export const PORTAL_LOCATIONS: PortalLocation[] = [];
+
 /**
  * Seeded random number generator for consistent structure generation
  */
@@ -406,6 +421,36 @@ function generateHauntedMansionInChunk(
   
   // ===== NETHER PORTAL (left side of mansion) =====
   generateNetherPortal(placeBlock, mansionX - 12, baseY, mansionZ + 10);
+  
+  // ===== INSIDE PORTAL (in the main hall) =====
+  // Place portal inside the mansion against the back wall of the main hall
+  const insidePortalX = mansionX + mainStartX + Math.floor(mainWidth / 2) - 2;
+  const insidePortalY = baseY + 1;  // Ground floor level
+  const insidePortalZ = mansionZ + mainDepth - 3;  // Near back wall
+  generateNetherPortal(placeBlock, insidePortalX, insidePortalY, insidePortalZ);
+  
+  // Register portal locations (only once when generating the main chunk)
+  if (PORTAL_LOCATIONS.length === 0) {
+    // Outside portal (left of mansion)
+    PORTAL_LOCATIONS.push({
+      id: 'outside',
+      linkedTo: 'inside',
+      x: mansionX - 12 + 1.5,  // Center of portal interior
+      y: baseY + 1,
+      z: mansionZ + 10 + 1,    // Step into portal (slightly behind frame)
+      exitYaw: 0,              // Facing +Z (south)
+    });
+    
+    // Inside portal (in mansion)
+    PORTAL_LOCATIONS.push({
+      id: 'inside',
+      linkedTo: 'outside',
+      x: insidePortalX + 1.5,  // Center of portal interior
+      y: insidePortalY + 1,
+      z: insidePortalZ + 1,    // Step into portal
+      exitYaw: Math.PI,        // Facing -Z (north) toward the door
+    });
+  }
 }
 
 /**

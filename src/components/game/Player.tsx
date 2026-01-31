@@ -5,7 +5,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useKeyboard } from '@/hooks';
 import { useGameStore } from '@/stores';
-import { BLOCK_DEFINITIONS, CHUNK_SIZE, getBlockFromChunk, chunkPositionToKey } from '@/types';
+import { BLOCK_DEFINITIONS, BlockType, CHUNK_SIZE, getBlockFromChunk, chunkPositionToKey } from '@/types';
+import { PORTAL_LOCATIONS, PortalLocation } from '@/lib/worldGen';
 
 const MOVE_SPEED = 10;
 const FLY_SPEED = 15;
@@ -18,6 +19,7 @@ const EYE_HEIGHT = 1.7;         // Camera/eye level relative to feet (normal vie
 const GRAVITY = 30;
 const JUMP_VELOCITY = 12;       // Jump velocity
 const DOUBLE_TAP_THRESHOLD = 300; // ms
+const PORTAL_COOLDOWN = 2000;     // ms - time before player can teleport again
 
 interface PlayerProps {
   isLocked: boolean;
@@ -41,27 +43,72 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
   const isGroundedRef = useRef(false);
   const lastSpacePressRef = useRef(0);
   const spaceWasDownRef = useRef(false);
+  const lastTeleportTimeRef = useRef(0);
   
-  // Check if a world position contains a solid block
-  const isBlockSolid = useCallback((worldX: number, worldY: number, worldZ: number): boolean => {
-    if (worldY < 0) return true; // Below world is solid
-    if (worldY >= 64) return false; // Above world is air
+  // Get block type at world position
+  const getBlockAt = useCallback((worldX: number, worldY: number, worldZ: number): BlockType => {
+    if (worldY < 0 || worldY >= 64) return BlockType.AIR;
     
     const chunkX = Math.floor(worldX / CHUNK_SIZE);
     const chunkZ = Math.floor(worldZ / CHUNK_SIZE);
     const key = chunkPositionToKey({ x: chunkX, z: chunkZ });
     
     const chunk = chunks.get(key);
-    if (!chunk) return false; // Unloaded chunks are passable
+    if (!chunk) return BlockType.AIR;
     
     const localX = ((Math.floor(worldX) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const localZ = ((Math.floor(worldZ) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const localY = Math.floor(worldY);
     
-    const block = getBlockFromChunk(chunk.data, localX, localY, localZ);
+    return getBlockFromChunk(chunk.data, localX, localY, localZ);
+  }, [chunks]);
+  
+  // Check if a world position contains a solid block
+  const isBlockSolid = useCallback((worldX: number, worldY: number, worldZ: number): boolean => {
+    if (worldY < 0) return true; // Below world is solid
+    if (worldY >= 64) return false; // Above world is air
+    
+    const block = getBlockAt(worldX, worldY, worldZ);
     const def = BLOCK_DEFINITIONS[block];
     return def?.solid ?? false;
-  }, [chunks]);
+  }, [getBlockAt]);
+  
+  // Find which portal the player is in (if any)
+  const findCurrentPortal = useCallback((x: number, y: number, z: number): PortalLocation | null => {
+    // Check if player is standing in a portal block
+    const feetBlock = getBlockAt(x, y, z);
+    const bodyBlock = getBlockAt(x, y + 0.5, z);
+    
+    if (feetBlock !== BlockType.PORTAL && bodyBlock !== BlockType.PORTAL) {
+      return null;
+    }
+    
+    // Find the closest portal to this position
+    let closestPortal: PortalLocation | null = null;
+    let closestDist = Infinity;
+    
+    for (const portal of PORTAL_LOCATIONS) {
+      const dx = x - portal.x;
+      const dz = z - portal.z;
+      const dist = dx * dx + dz * dz;
+      
+      if (dist < closestDist && dist < 16) { // Within 4 blocks
+        closestDist = dist;
+        closestPortal = portal;
+      }
+    }
+    
+    return closestPortal;
+  }, [getBlockAt]);
+  
+  // Teleport to a portal
+  const teleportToPortal = useCallback((targetPortal: PortalLocation) => {
+    positionRef.current.set(targetPortal.x, targetPortal.y, targetPortal.z);
+    velocityRef.current.set(0, 0, 0);
+    yawRef.current = targetPortal.exitYaw;
+    pitchRef.current = 0;
+    lastTeleportTimeRef.current = Date.now();
+  }, []);
   
   // Handle hotbar selection and double-tap fly toggle
   useEffect(() => {
@@ -263,6 +310,19 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     positionRef.current.x = finalX;
     positionRef.current.y = finalY;
     positionRef.current.z = finalZ;
+    
+    // Check for portal teleportation
+    const now = Date.now();
+    if (now - lastTeleportTimeRef.current > PORTAL_COOLDOWN) {
+      const currentPortal = findCurrentPortal(finalX, finalY, finalZ);
+      if (currentPortal) {
+        // Find the linked portal
+        const targetPortal = PORTAL_LOCATIONS.find(p => p.id === currentPortal.linkedTo);
+        if (targetPortal) {
+          teleportToPortal(targetPortal);
+        }
+      }
+    }
 
     // Update camera position and rotation
     camera.position.set(

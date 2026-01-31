@@ -74,11 +74,12 @@ describe('worldPersistence', () => {
         )?.[1] || '{}'
       );
       
-      expect(savedData.version).toBe(1);
+      expect(savedData.version).toBe(2); // Version 2 uses RLE compression
       expect(savedData.playerPosition).toEqual([10, 50, 20]);
       expect(savedData.playerRotation).toEqual([0.5, 0.5]);
       expect(savedData.chunks).toHaveLength(1);
-      expect(savedData.chunks[0].data).toEqual([1, 2, 3, 4]);
+      // Data is now RLE compressed: [1,1, 2,1, 3,1, 4,1] -> each value appears once
+      expect(savedData.chunks[0].compressed).toBe(true);
     });
 
     it('should update world list on save', () => {
