@@ -9,7 +9,7 @@ const BLOCK_COLORS: Record<BlockType, string> = {
   [BlockType.DIRT]: '#8b6914',
   [BlockType.STONE]: '#888888',
   [BlockType.WOOD]: '#6b4423',
-  [BlockType.LEAVES]: '#2d5a27',
+  [BlockType.LEAVES]: '#d65db1',  // Pink/purple to match texture pack
   [BlockType.SAND]: '#d4c896',
   [BlockType.WATER]: '#3b82f6',
   [BlockType.COBBLESTONE]: '#666666',
