@@ -1,16 +1,23 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useGameStore } from '@/stores';
 
 interface WorldMenuProps {
   onStartGame: () => void;
 }
 
+// Detect touch device
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
 export function WorldMenu({ onStartGame }: WorldMenuProps) {
   const hasExistingSave = useGameStore((state) => state.hasExistingSave);
   const loadGame = useGameStore((state) => state.loadGame);
   const resetWorld = useGameStore((state) => state.resetWorld);
+  const [isMobile] = useState(() => isTouchDevice());
   
   // Check for existing save (computed once on mount)
   const hasSave = useMemo(() => {
@@ -44,7 +51,11 @@ export function WorldMenu({ onStartGame }: WorldMenuProps) {
           {hasSave && (
             <button
               onClick={handleContinue}
-              className="w-full px-8 py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-bold rounded-lg transition-colors"
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                handleContinue();
+              }}
+              className="w-full px-8 py-5 bg-green-600 hover:bg-green-500 active:bg-green-400 text-white text-xl font-bold rounded-lg transition-colors touch-manipulation"
             >
               Continue World
             </button>
@@ -52,17 +63,31 @@ export function WorldMenu({ onStartGame }: WorldMenuProps) {
           
           <button
             onClick={handleNewWorld}
-            className="w-full px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-xl font-bold rounded-lg transition-colors"
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              handleNewWorld();
+            }}
+            className="w-full px-8 py-5 bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white text-xl font-bold rounded-lg transition-colors touch-manipulation"
           >
             {hasSave ? 'New World' : 'Start New World'}
           </button>
         </div>
         
         <div className="mt-8 text-sm text-gray-400 space-y-1">
-          <p>WASD - Move | Mouse - Look | 1-9 - Select block</p>
-          <p>Space - Jump | Double-tap Space - Toggle fly</p>
-          <p>Left Click - Break | Right Click - Place</p>
-          <p className="text-yellow-400 mt-2">Survive the Tsunami every 60 seconds!</p>
+          {isMobile ? (
+            <>
+              <p>Drag - Look around | Joystick - Move</p>
+              <p>Tap - Place block | Hold - Break block</p>
+              <p className="text-yellow-400 mt-2">Survive the Catastrophes!</p>
+            </>
+          ) : (
+            <>
+              <p>WASD - Move | Mouse - Look | 1-9 - Select block</p>
+              <p>Space - Jump | Double-tap Space - Toggle fly</p>
+              <p>Left Click - Break | Right Click - Place</p>
+              <p className="text-yellow-400 mt-2">Survive the Catastrophes!</p>
+            </>
+          )}
         </div>
         
         {hasSave && (

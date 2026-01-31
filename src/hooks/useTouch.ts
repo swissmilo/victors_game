@@ -44,6 +44,12 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (e.touches.length !== 1) return;
     
+    // Don't capture touches on buttons or interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
+      return;
+    }
+    
     const touch = e.touches[0];
     touchStartTime.current = Date.now();
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
@@ -72,6 +78,9 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (e.touches.length !== 1) return;
     
+    // Only process if we're looking (started on a valid area)
+    if (!touchState.current.isLooking) return;
+    
     const touch = e.touches[0];
     const deltaX = (touch.clientX - lastTouchPos.current.x) * LOOK_SENSITIVITY;
     const deltaY = (touch.clientY - lastTouchPos.current.y) * LOOK_SENSITIVITY;
@@ -85,6 +94,11 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
   }, []);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
+    // Only process if we were looking (started on a valid area)
+    if (!touchState.current.isLooking) {
+      return;
+    }
+    
     const elapsed = Date.now() - touchStartTime.current;
     const movement = Math.sqrt(
       Math.pow(lastTouchPos.current.x - touchStartPos.current.x, 2) +
