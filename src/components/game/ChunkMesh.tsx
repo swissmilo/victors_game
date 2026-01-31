@@ -4,7 +4,6 @@ import { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { ChunkData, ChunkPosition, CHUNK_SIZE } from '@/types';
 import { buildChunkMesh, createChunkGeometry } from '@/lib/meshBuilder';
-import { getAtlasTexture } from '@/lib/textureAtlas';
 
 interface ChunkMeshProps {
   position: ChunkPosition;
@@ -20,11 +19,9 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
     return createChunkGeometry(meshData);
   }, [data]);
   
-  // Create material with texture atlas
+  // Create simple material without vertex colors (cleaner look)
   const material = useMemo(() => {
-    const texture = getAtlasTexture();
     return new THREE.MeshLambertMaterial({
-      map: texture,
       vertexColors: true,
     });
   }, []);

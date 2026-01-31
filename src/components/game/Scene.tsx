@@ -16,23 +16,26 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       {/* Performance stats */}
       <Stats />
       
-      {/* Lighting */}
-      <ambientLight intensity={0.6} />
+      {/* Lighting - bright ambient for Minecraft-like flat shading */}
+      <ambientLight intensity={1.0} />
       <directionalLight
-        position={[50, 100, 50]}
-        intensity={1.0}
+        position={[100, 200, 100]}
+        intensity={0.5}
+      />
+      <hemisphereLight
+        args={['#87CEEB', '#545454', 0.5]}
       />
       
       {/* Sky */}
       <Sky 
         distance={450000}
-        sunPosition={[100, 50, 100]}
-        inclination={0.5}
+        sunPosition={[100, 100, 100]}
+        inclination={0.6}
         azimuth={0.25}
       />
       
       {/* Fog for distance */}
-      <fog attach="fog" args={['#87CEEB', 50, 200]} />
+      <fog attach="fog" args={['#87CEEB', 80, 250]} />
       
       {/* Player controller */}
       <Player isLocked={isLocked} consumeMovement={consumeMovement} />
@@ -41,7 +44,7 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       <BlockSelector enabled={isLocked} />
       
       {/* Voxel world */}
-      <World renderDistance={2} />
+      <World renderDistance={3} />
     </>
   );
 }

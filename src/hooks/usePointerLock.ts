@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback, RefObject } from 'react';
+import { useEffect, useState, useCallback, useRef, RefObject } from 'react';
 
 export function usePointerLock(elementRef: RefObject<HTMLElement | null>) {
   const [isLocked, setIsLocked] = useState(false);
-  const [movement, setMovement] = useState({ x: 0, y: 0 });
+  
+  // Use refs for movement to avoid state update timing issues
+  const movementRef = useRef({ x: 0, y: 0 });
 
   const requestLock = useCallback(() => {
     if (elementRef.current) {
@@ -18,12 +20,19 @@ export function usePointerLock(elementRef: RefObject<HTMLElement | null>) {
 
   useEffect(() => {
     const handleLockChange = () => {
-      setIsLocked(document.pointerLockElement === elementRef.current);
+      const locked = document.pointerLockElement === elementRef.current;
+      setIsLocked(locked);
+      if (!locked) {
+        // Reset movement when unlocking
+        movementRef.current = { x: 0, y: 0 };
+      }
     };
 
     const handleMouseMove = (event: MouseEvent) => {
       if (document.pointerLockElement === elementRef.current) {
-        setMovement({ x: event.movementX, y: event.movementY });
+        // Accumulate movement
+        movementRef.current.x += event.movementX;
+        movementRef.current.y += event.movementY;
       }
     };
 
@@ -36,12 +45,12 @@ export function usePointerLock(elementRef: RefObject<HTMLElement | null>) {
     };
   }, [elementRef]);
 
-  // Reset movement after it's been read
+  // Consume and reset movement - called each frame
   const consumeMovement = useCallback(() => {
-    const currentMovement = { ...movement };
-    setMovement({ x: 0, y: 0 });
+    const currentMovement = { ...movementRef.current };
+    movementRef.current = { x: 0, y: 0 };
     return currentMovement;
-  }, [movement]);
+  }, []);
 
-  return { isLocked, requestLock, exitLock, movement, consumeMovement };
+  return { isLocked, requestLock, exitLock, consumeMovement };
 }
