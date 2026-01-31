@@ -39,6 +39,10 @@ interface BlockSelectorProps {
 
 // Hold duration needed to break a block on mobile (ms)
 const HOLD_BREAK_THRESHOLD = 500;
+// Cooldown between continuous block actions (ms)
+const CONTINUOUS_ACTION_COOLDOWN = 300;
+// Minimum distance from player for continuous placement (blocks)
+const MIN_CONTINUOUS_DISTANCE = 2.0;
 
 export function BlockSelector({ 
   enabled, 
@@ -54,6 +58,16 @@ export function BlockSelector({
   const highlightRef = useRef<THREE.Mesh>(null);
   const hasTriggeredBreak = useRef(false);  // Track if we've broken a block during current hold
   
+  // Track mouse button states for continuous placement/breaking
+  const isLeftMouseDown = useRef(false);
+  const isRightMouseDown = useRef(false);
+  // Track last block position to avoid repeated actions on same block
+  const lastBreakPos = useRef<string | null>(null);
+  const lastPlacePos = useRef<string | null>(null);
+  // Track last action time for cooldown
+  const lastBreakTime = useRef(0);
+  const lastPlaceTime = useRef(0);
+  
   const chunks = useGameStore((state) => state.chunks);
   const setChunk = useGameStore((state) => state.setChunk);
   const inventory = useGameStore((state) => state.inventory);
@@ -62,6 +76,16 @@ export function BlockSelector({
   const removeFromInventory = useGameStore((state) => state.removeFromInventory);
   const addTeleporter = useGameStore((state) => state.addTeleporter);
   const removeTeleporter = useGameStore((state) => state.removeTeleporter);
+  const playerPosition = useGameStore((state) => state.playerPosition);
+  
+  // Helper to check if a position is far enough from player for continuous action
+  const isFarEnoughFromPlayer = useCallback((pos: { x: number; y: number; z: number }) => {
+    const dx = pos.x - playerPosition[0];
+    const dy = pos.y - playerPosition[1];
+    const dz = pos.z - playerPosition[2];
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return distance >= MIN_CONTINUOUS_DISTANCE;
+  }, [playerPosition]);
 
   // Convert chunks Map to the format needed by raycast
   const getChunksForRaycast = useCallback(() => {
@@ -168,17 +192,42 @@ export function BlockSelector({
     placeBlockAt(targetBlock);
   }, [targetBlock, placeBlockAt]);
 
-  // Handle mouse clicks
+  // Handle mouse clicks - track button state for continuous placement
   useEffect(() => {
     if (!enabled) return;
 
     const handleMouseDown = (event: MouseEvent) => {
+      const now = Date.now();
       if (event.button === 0) {
         // Left click - break
+        isLeftMouseDown.current = true;
         breakBlock();
+        // Update last break position and time to prevent double-action
+        if (targetBlock) {
+          const pos = targetBlock.blockPosition;
+          lastBreakPos.current = `${Math.floor(pos.x)},${Math.floor(pos.y)},${Math.floor(pos.z)}`;
+          lastBreakTime.current = now;
+        }
       } else if (event.button === 2) {
         // Right click - place
+        isRightMouseDown.current = true;
         placeBlock();
+        // Update last place position and time to prevent double-action
+        if (targetBlock) {
+          const pos = targetBlock.placePosition;
+          lastPlacePos.current = `${Math.floor(pos.x)},${Math.floor(pos.y)},${Math.floor(pos.z)}`;
+          lastPlaceTime.current = now;
+        }
+      }
+    };
+    
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button === 0) {
+        isLeftMouseDown.current = false;
+        lastBreakPos.current = null;
+      } else if (event.button === 2) {
+        isRightMouseDown.current = false;
+        lastPlacePos.current = null;
       }
     };
 
@@ -187,13 +236,15 @@ export function BlockSelector({
     };
 
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('contextmenu', handleContextMenu);
     
     return () => {
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [enabled, breakBlock, placeBlock]);
+  }, [enabled, breakBlock, placeBlock, targetBlock]);
 
   // Raycast every frame to find targeted block
   useFrame(() => {
@@ -209,6 +260,42 @@ export function BlockSelector({
     const hit = raycastBlocks(camera.position, direction, chunksMap, 6);
     
     setTargetBlock(hit);
+    
+    // Desktop: Continuous breaking while left mouse held and moving to new blocks
+    if (!isMobile && isLeftMouseDown.current && hit) {
+      const now = Date.now();
+      const pos = hit.blockPosition;
+      const posKey = `${Math.floor(pos.x)},${Math.floor(pos.y)},${Math.floor(pos.z)}`;
+      
+      // Check cooldown, new position, and minimum distance from player
+      const cooldownPassed = now - lastBreakTime.current >= CONTINUOUS_ACTION_COOLDOWN;
+      const isNewBlock = posKey !== lastBreakPos.current;
+      const farEnough = isFarEnoughFromPlayer(pos);
+      
+      if (isNewBlock && cooldownPassed && farEnough) {
+        breakBlockAt(hit);
+        lastBreakPos.current = posKey;
+        lastBreakTime.current = now;
+      }
+    }
+    
+    // Desktop: Continuous placement while right mouse held and moving to new blocks
+    if (!isMobile && isRightMouseDown.current && hit) {
+      const now = Date.now();
+      const pos = hit.placePosition;
+      const posKey = `${Math.floor(pos.x)},${Math.floor(pos.y)},${Math.floor(pos.z)}`;
+      
+      // Check cooldown, new position, and minimum distance from player
+      const cooldownPassed = now - lastPlaceTime.current >= CONTINUOUS_ACTION_COOLDOWN;
+      const isNewBlock = posKey !== lastPlacePos.current;
+      const farEnough = isFarEnoughFromPlayer(pos);
+      
+      if (isNewBlock && cooldownPassed && farEnough) {
+        placeBlockAt(hit);
+        lastPlacePos.current = posKey;
+        lastPlaceTime.current = now;
+      }
+    }
     
     // Handle mobile touch controls
     if (isMobile) {
