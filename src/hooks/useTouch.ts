@@ -150,39 +150,61 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
   }, [getLookTouch]);
   
   const handleTouchMove = useCallback((e: TouchEvent) => {
+    // Don't capture touches on buttons, links, or UI controls (hotbar, etc.)
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[role="button"]') ||
+      target.closest('[data-hotbar]')
+    ) {
+      return;
+    }
+
     // Process each moved touch
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       const tracked = trackedTouches.current.get(touch.identifier);
-      
+
       // Only process look touches we're tracking
       if (!tracked || !tracked.isLookTouch) continue;
-      
+
       const rawDeltaX = touch.clientX - tracked.lastPos.x;
       const rawDeltaY = touch.clientY - tracked.lastPos.y;
-      
+
       // Track total movement
       tracked.totalMovement += Math.abs(rawDeltaX) + Math.abs(rawDeltaY);
       touchState.current.totalMovement = tracked.totalMovement;
-      
+
       // Apply look delta
       touchState.current.lookDelta.x += rawDeltaX * LOOK_SENSITIVITY;
       touchState.current.lookDelta.y += rawDeltaY * LOOK_SENSITIVITY;
-      
+
       tracked.lastPos = { x: touch.clientX, y: touch.clientY };
     }
-    
+
     e.preventDefault();
   }, []);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
+    // Don't capture touches on buttons, links, or UI controls (hotbar, etc.)
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[role="button"]') ||
+      target.closest('[data-hotbar]')
+    ) {
+      return;
+    }
+
     // Process each ended touch
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       const tracked = trackedTouches.current.get(touch.identifier);
-      
+
       if (!tracked) continue;
-      
+
       // Only process taps/holds for look touches
       if (tracked.isLookTouch) {
         const elapsed = Date.now() - tracked.startTime;
@@ -190,52 +212,63 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
           Math.pow(tracked.lastPos.x - tracked.startPos.x, 2) +
           Math.pow(tracked.lastPos.y - tracked.startPos.y, 2)
         );
-        
+
         // Check if it was a tap
         if (elapsed < TAP_MAX_DURATION && movement < TAP_MAX_MOVEMENT) {
-          pendingTap.current = { 
-            x: tracked.startPos.x, 
-            y: tracked.startPos.y 
+          pendingTap.current = {
+            x: tracked.startPos.x,
+            y: tracked.startPos.y
           };
           touchState.current.isTapping = true;
         }
       }
-      
+
       // Remove from tracking
       trackedTouches.current.delete(touch.identifier);
     }
-    
+
     // Update state based on remaining look touches
     const remainingLookTouch = getLookTouch();
     if (!remainingLookTouch) {
       touchState.current.isLooking = false;
       touchState.current.isHolding = false;
       touchState.current.holdDuration = 0;
-      
+
       // Clear hold check if no more look touches
       if (holdCheckInterval.current) {
         clearInterval(holdCheckInterval.current);
         holdCheckInterval.current = null;
       }
     }
-    
+
     e.preventDefault();
   }, [getLookTouch]);
   
   const handleTouchCancel = useCallback((e: TouchEvent) => {
+    // Don't capture touches on buttons, links, or UI controls (hotbar, etc.)
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[role="button"]') ||
+      target.closest('[data-hotbar]')
+    ) {
+      return;
+    }
+
     // Remove cancelled touches
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       trackedTouches.current.delete(touch.identifier);
     }
-    
+
     // Update state
     const remainingLookTouch = getLookTouch();
     if (!remainingLookTouch) {
       touchState.current.isLooking = false;
       touchState.current.isHolding = false;
       touchState.current.holdDuration = 0;
-      
+
       if (holdCheckInterval.current) {
         clearInterval(holdCheckInterval.current);
         holdCheckInterval.current = null;
