@@ -6,6 +6,7 @@ import { usePointerLock } from '@/hooks';
 import { Scene } from './Scene';
 import { Hotbar } from '../ui/Hotbar';
 import { Crosshair } from '../ui/Crosshair';
+import { TsunamiTimer } from '../ui/TsunamiTimer';
 import { useGameStore } from '@/stores';
 
 export function Game() {
@@ -41,10 +42,11 @@ export function Game() {
         <>
           <Crosshair />
           <Hotbar />
+          <TsunamiTimer />
           
           {/* Flying indicator */}
           {isFlying && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">
               Flying
             </div>
           )}
@@ -55,12 +57,13 @@ export function Game() {
       {!isLocked && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="text-center text-white">
-            <h1 className="text-4xl font-bold mb-4">Voxel World</h1>
+            <h1 className="text-4xl font-bold mb-4">Victor's World</h1>
             <p className="text-xl mb-2">Click to play</p>
             <div className="text-sm text-gray-300 space-y-1">
               <p>WASD - Move | Mouse - Look | 1-9 - Select block</p>
               <p>Space - Jump | Double-tap Space - Toggle fly</p>
               <p>Left Click - Break | Right Click - Place</p>
+              <p className="text-yellow-400 mt-2">Survive the Tsunami every 60 seconds!</p>
             </div>
           </div>
         </div>

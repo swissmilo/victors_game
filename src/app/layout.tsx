@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Voxel World - A Minecraft-Style Game",
+  title: "Victor's Game",
   description: "A browser-based 3D voxel game built with Next.js and Three.js",
 };
 

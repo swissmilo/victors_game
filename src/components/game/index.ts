@@ -5,3 +5,4 @@ export { Ground } from './Ground';
 export { ChunkMesh } from './ChunkMesh';
 export { World } from './World';
 export { BlockSelector } from './BlockSelector';
+export { TsunamiSystem } from './TsunamiSystem';

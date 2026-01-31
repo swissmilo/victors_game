@@ -6,6 +6,17 @@ interface InventorySlot {
   count: number;
 }
 
+// Tsunami phases
+export type TsunamiPhase = 'countdown' | 'rising' | 'peak' | 'falling';
+
+interface TsunamiState {
+  phase: TsunamiPhase;
+  countdown: number;        // Seconds until next tsunami
+  waterLevel: number;       // Current water Y level
+  baseWaterLevel: number;   // Normal sea level
+  maxWaterLevel: number;    // Peak tsunami height
+}
+
 interface GameState {
   // Player state
   playerPosition: [number, number, number];
@@ -24,6 +35,9 @@ interface GameState {
   isPaused: boolean;
   isFlying: boolean;
   
+  // Tsunami state
+  tsunami: TsunamiState;
+  
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
   setPlayerRotation: (rotation: [number, number]) => void;
@@ -36,6 +50,10 @@ interface GameState {
   setIsPlaying: (isPlaying: boolean) => void;
   setIsPaused: (isPaused: boolean) => void;
   setIsFlying: (isFlying: boolean) => void;
+  
+  // Tsunami actions
+  updateTsunami: (updates: Partial<TsunamiState>) => void;
+  resetTsunami: () => void;
 }
 
 const INITIAL_INVENTORY: InventorySlot[] = [
@@ -50,6 +68,19 @@ const INITIAL_INVENTORY: InventorySlot[] = [
   { blockType: BlockType.AIR, count: 0 },
 ];
 
+// Tsunami configuration
+const TSUNAMI_COUNTDOWN = 60;  // 60 seconds between tsunamis
+const BASE_WATER_LEVEL = 32;   // Sea level
+const MAX_WATER_LEVEL = 70;    // Top of haunted mansion (~35 blocks above base terrain)
+
+const INITIAL_TSUNAMI: TsunamiState = {
+  phase: 'countdown',
+  countdown: TSUNAMI_COUNTDOWN,
+  waterLevel: BASE_WATER_LEVEL,
+  baseWaterLevel: BASE_WATER_LEVEL,
+  maxWaterLevel: MAX_WATER_LEVEL,
+};
+
 export const useGameStore = create<GameState>((set, get) => ({
   // Initial state
   playerPosition: [0, 20, 0],
@@ -61,6 +92,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   isFlying: false,
+  tsunami: INITIAL_TSUNAMI,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -144,4 +176,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   setIsPaused: (isPaused) => set({ isPaused }),
   
   setIsFlying: (isFlying) => set({ isFlying }),
+  
+  updateTsunami: (updates) => set((state) => ({
+    tsunami: { ...state.tsunami, ...updates },
+  })),
+  
+  resetTsunami: () => set({
+    tsunami: INITIAL_TSUNAMI,
+  }),
 }));
+
+// Export tsunami constants for use in components
+export { TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL };

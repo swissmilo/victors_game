@@ -4,6 +4,7 @@ import { Sky, Stats } from '@react-three/drei';
 import { Player } from './Player';
 import { World } from './World';
 import { BlockSelector } from './BlockSelector';
+import { TsunamiSystem } from './TsunamiSystem';
 
 interface SceneProps {
   isLocked: boolean;
@@ -45,6 +46,9 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       
       {/* Voxel world */}
       <World renderDistance={3} />
+      
+      {/* Tsunami system */}
+      <TsunamiSystem />
     </>
   );
 }
