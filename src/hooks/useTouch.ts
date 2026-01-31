@@ -83,9 +83,14 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
   }, []);
   
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    // Don't capture touches on buttons or interactive elements
+    // Don't capture touches on buttons, links, or UI controls (hotbar, etc.)
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[role="button"]') ||
+      target.closest('[data-hotbar]')
+    ) {
       return;
     }
     

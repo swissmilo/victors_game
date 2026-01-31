@@ -86,8 +86,9 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   const slots = inventory.slice(0, 9);
 
-  // Same pattern as MobileControls: outer wrapper (pointer-events-auto z-20), inner absolute positioned
-  // Use bottom-24 to align with joystick/jump row; on phone offset right from center (away from joystick)
+  // Wrapper must have a real hit area (absolute + size) so touches reach the hotbar;
+  // parent overlay has pointer-events-none, so a zero-size wrapper would let touches pass to canvas.
+  const wrapperClass = 'absolute left-0 right-0 bottom-0 h-28 pointer-events-auto z-20 touch-manipulation';
   const innerPositionClass = isMobile
     ? isPhoneLayout
       ? 'absolute bottom-24 left-[calc(50%+2.5rem)] -translate-x-1/2'  // iPhone: right of center
@@ -98,7 +99,7 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
   if (isPhoneLayout) {
     const slot = slots[hotbarSelection];
     return (
-      <div className="pointer-events-auto z-20 touch-manipulation" style={{ touchAction: 'manipulation' }}>
+      <div className={wrapperClass} style={{ touchAction: 'manipulation' }} data-hotbar>
         <div className={innerPositionClass}>
           <button
             type="button"
@@ -124,7 +125,7 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   // Tablet (mobile): full hotbar with touch to select. Desktop: full hotbar (keys only).
   return (
-    <div className="pointer-events-auto z-20 touch-manipulation" style={{ touchAction: 'manipulation' }}>
+    <div className={wrapperClass} style={{ touchAction: 'manipulation' }} data-hotbar>
       <div className={`${innerPositionClass} flex gap-1`}>
       {slots.map((slot, index) => {
         const isSelected = index === hotbarSelection;
