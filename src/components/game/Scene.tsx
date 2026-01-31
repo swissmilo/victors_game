@@ -5,6 +5,7 @@ import { Player } from './Player';
 import { World } from './World';
 import { BlockSelector } from './BlockSelector';
 import { TsunamiSystem } from './TsunamiSystem';
+import { BloodRainSystem } from './BloodRainSystem';
 
 interface SceneProps {
   isLocked: boolean;
@@ -47,8 +48,9 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       {/* Voxel world - render distance 8 = ~128 blocks, unload at 12 */}
       <World renderDistance={8} unloadDistance={12} />
       
-      {/* Tsunami system */}
+      {/* Catastrophe systems */}
       <TsunamiSystem />
+      <BloodRainSystem />
     </>
   );
 }

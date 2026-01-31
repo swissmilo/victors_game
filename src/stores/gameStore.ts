@@ -7,6 +7,9 @@ interface InventorySlot {
   count: number;
 }
 
+// Catastrophe types
+export type CatastropheType = 'tsunami' | 'blood_rain';
+
 // Tsunami phases
 export type TsunamiPhase = 'countdown' | 'rising' | 'peak' | 'falling';
 
@@ -16,6 +19,16 @@ interface TsunamiState {
   waterLevel: number;       // Current water Y level
   baseWaterLevel: number;   // Normal sea level
   maxWaterLevel: number;    // Peak tsunami height
+}
+
+// Blood rain phases
+export type BloodRainPhase = 'countdown' | 'starting' | 'active' | 'ending';
+
+interface BloodRainState {
+  phase: BloodRainPhase;
+  countdown: number;        // Seconds until blood rain
+  intensity: number;        // 0-1, controls darkness and rain intensity
+  duration: number;         // How long the rain lasts
 }
 
 // Teleporter position
@@ -46,8 +59,15 @@ interface GameState {
   isPaused: boolean;
   isFlying: boolean;
   
+  // Catastrophe system
+  currentCatastrophe: CatastropheType;
+  nextCatastrophe: CatastropheType;
+  
   // Tsunami state
   tsunami: TsunamiState;
+  
+  // Blood rain state
+  bloodRain: BloodRainState;
   
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
@@ -67,9 +87,17 @@ interface GameState {
   addTeleporter: (position: TeleporterPosition) => void;
   removeTeleporter: (position: TeleporterPosition) => void;
   
+  // Catastrophe actions
+  setCurrentCatastrophe: (type: CatastropheType) => void;
+  switchToNextCatastrophe: () => void;
+  
   // Tsunami actions
   updateTsunami: (updates: Partial<TsunamiState>) => void;
   resetTsunami: () => void;
+  
+  // Blood rain actions
+  updateBloodRain: (updates: Partial<BloodRainState>) => void;
+  resetBloodRain: () => void;
   
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
@@ -90,10 +118,17 @@ const INITIAL_INVENTORY: InventorySlot[] = [
   { blockType: BlockType.TELEPORTER, count: 64 },
 ];
 
+// Catastrophe configuration
+const CATASTROPHE_COUNTDOWN = 60;  // 60 seconds between catastrophes
+
 // Tsunami configuration
-const TSUNAMI_COUNTDOWN = 60;  // 60 seconds between tsunamis
+const TSUNAMI_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 const BASE_WATER_LEVEL = 32;   // Sea level
 const MAX_WATER_LEVEL = 70;    // Top of haunted mansion (~35 blocks above base terrain)
+
+// Blood rain configuration
+const BLOOD_RAIN_COUNTDOWN = CATASTROPHE_COUNTDOWN;
+const BLOOD_RAIN_DURATION = 20;  // Seconds of blood rain
 
 const INITIAL_TSUNAMI: TsunamiState = {
   phase: 'countdown',
@@ -101,6 +136,13 @@ const INITIAL_TSUNAMI: TsunamiState = {
   waterLevel: BASE_WATER_LEVEL,
   baseWaterLevel: BASE_WATER_LEVEL,
   maxWaterLevel: MAX_WATER_LEVEL,
+};
+
+const INITIAL_BLOOD_RAIN: BloodRainState = {
+  phase: 'countdown',
+  countdown: BLOOD_RAIN_COUNTDOWN,
+  intensity: 0,
+  duration: BLOOD_RAIN_DURATION,
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -115,7 +157,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   isFlying: false,
+  currentCatastrophe: 'tsunami',
+  nextCatastrophe: 'blood_rain',
   tsunami: INITIAL_TSUNAMI,
+  bloodRain: INITIAL_BLOOD_RAIN,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -243,12 +288,31 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
   
+  setCurrentCatastrophe: (type) => set({ currentCatastrophe: type }),
+  
+  switchToNextCatastrophe: () => {
+    const { currentCatastrophe, nextCatastrophe } = get();
+    // Swap current and next
+    set({
+      currentCatastrophe: nextCatastrophe,
+      nextCatastrophe: currentCatastrophe,
+    });
+  },
+  
   updateTsunami: (updates) => set((state) => ({
     tsunami: { ...state.tsunami, ...updates },
   })),
   
   resetTsunami: () => set({
     tsunami: INITIAL_TSUNAMI,
+  }),
+  
+  updateBloodRain: (updates) => set((state) => ({
+    bloodRain: { ...state.bloodRain, ...updates },
+  })),
+  
+  resetBloodRain: () => set({
+    bloodRain: INITIAL_BLOOD_RAIN,
   }),
   
   saveGame: (worldId = 'default') => {
@@ -275,7 +339,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       hotbarSelection: saveData.hotbarSelection,
       chunks,
       teleporters: [],  // Reset teleporters - they'll need to be re-placed
+      currentCatastrophe: 'tsunami',
+      nextCatastrophe: 'blood_rain',
       tsunami: INITIAL_TSUNAMI,
+      bloodRain: INITIAL_BLOOD_RAIN,
     });
     
     return true;
@@ -296,10 +363,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       isPlaying: false,
       isPaused: false,
       isFlying: false,
+      currentCatastrophe: 'tsunami',
+      nextCatastrophe: 'blood_rain',
       tsunami: INITIAL_TSUNAMI,
+      bloodRain: INITIAL_BLOOD_RAIN,
     });
   },
 }));
 
-// Export tsunami constants for use in components
-export { TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL };
+// Export catastrophe constants for use in components
+export { TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION };

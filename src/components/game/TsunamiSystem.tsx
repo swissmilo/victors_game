@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL } from '@/stores';
+import { useGameStore, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN } from '@/stores';
 import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk } from '@/types';
 
 // Tsunami timing configuration
@@ -22,12 +22,18 @@ export function TsunamiSystem() {
   const chunks = useGameStore((state) => state.chunks);
   const setChunk = useGameStore((state) => state.setChunk);
   const isPlaying = useGameStore((state) => state.isPlaying);
+  const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
+  const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
+  const updateBloodRain = useGameStore((state) => state.updateBloodRain);
   
   const lastDestroyLevel = useRef(BASE_WATER_LEVEL);
   const phaseTimer = useRef(0);
   
   useFrame((_, delta) => {
     if (!isPlaying) return;
+    
+    // Only run when tsunami is the current catastrophe
+    if (currentCatastrophe !== 'tsunami') return;
     
     const { phase, countdown, waterLevel } = tsunami;
     
@@ -82,7 +88,7 @@ export function TsunamiSystem() {
         const newLevel = Math.max(waterLevel - FALL_SPEED * delta, BASE_WATER_LEVEL);
         updateTsunami({ waterLevel: newLevel });
         
-        // Check if back to base
+        // Check if back to base - switch to next catastrophe
         if (newLevel <= BASE_WATER_LEVEL) {
           updateTsunami({
             phase: 'countdown',
@@ -90,14 +96,26 @@ export function TsunamiSystem() {
             waterLevel: BASE_WATER_LEVEL,
           });
           phaseTimer.current = 0;
+          
+          // Switch to blood rain and start its countdown
+          switchToNextCatastrophe();
+          updateBloodRain({
+            phase: 'countdown',
+            countdown: BLOOD_RAIN_COUNTDOWN,
+          });
         }
         break;
       }
     }
   });
   
+  // Only render water plane during active tsunami phases
+  const isActive = currentCatastrophe === 'tsunami' && tsunami.phase !== 'countdown';
+  
   // Render the water plane - offset slightly above blocks to prevent z-fighting
   const waterY = tsunami.waterLevel + 0.1;
+  
+  if (!isActive) return null;
   
   return (
     <mesh position={[0, waterY, 0]} rotation={[-Math.PI / 2, 0, 0]}>

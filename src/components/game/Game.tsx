@@ -6,7 +6,7 @@ import { usePointerLock } from '@/hooks';
 import { Scene } from './Scene';
 import { Hotbar } from '../ui/Hotbar';
 import { Crosshair } from '../ui/Crosshair';
-import { TsunamiTimer } from '../ui/TsunamiTimer';
+import { CatastropheTimer } from '../ui/CatastropheTimer';
 import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
 import { WorldMenu } from '../ui/WorldMenu';
 import { useGameStore } from '@/stores';
@@ -105,7 +105,7 @@ export function Game() {
           <UnderwaterOverlay />
           <Crosshair />
           <Hotbar />
-          <TsunamiTimer />
+          <CatastropheTimer />
           
           {/* Flying indicator */}
           {isFlying && (
