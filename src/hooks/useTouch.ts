@@ -2,6 +2,18 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 
+// Track individual touch data
+interface TrackedTouch {
+  id: number;
+  startTime: number;
+  startPos: { x: number; y: number };
+  lastPos: { x: number; y: number };
+  totalMovement: number;
+  isLookTouch: boolean;  // True if this touch is for looking (not on controls)
+  isHolding: boolean;
+  holdDuration: number;
+}
+
 interface TouchState {
   isLooking: boolean;
   lookDelta: { x: number; y: number };
@@ -9,8 +21,8 @@ interface TouchState {
   isHolding: boolean;
   holdDuration: number;
   tapPosition: { x: number; y: number } | null;
-  totalMovement: number;  // Track total movement during touch
-  isCenterTouch: boolean; // Whether touch started in center area (not on controls)
+  totalMovement: number;
+  isCenterTouch: boolean;
 }
 
 interface UseTouchReturn {
@@ -19,16 +31,27 @@ interface UseTouchReturn {
   consumeTap: () => { x: number; y: number } | null;
   isHolding: () => boolean;
   holdDuration: () => number;
-  isValidHoldForBreak: () => boolean;  // Check if hold is valid for breaking blocks
-  getHoldPosition: () => { x: number; y: number } | null;  // Get the position where hold started
+  isValidHoldForBreak: () => boolean;
+  getHoldPosition: () => { x: number; y: number } | null;
 }
 
 // Thresholds
-const TAP_MAX_DURATION = 200;    // Max ms for a tap
-const TAP_MAX_MOVEMENT = 20;     // Max pixels movement for a tap
-const HOLD_THRESHOLD = 400;      // Ms to trigger hold
-const HOLD_MAX_MOVEMENT = 15;    // Max pixels movement during hold for block break
-const LOOK_SENSITIVITY = 3.0;    // Touch look sensitivity multiplier (increased for faster turning)
+const TAP_MAX_DURATION = 200;
+const TAP_MAX_MOVEMENT = 20;
+const HOLD_THRESHOLD = 400;
+const HOLD_MAX_MOVEMENT = 15;
+const LOOK_SENSITIVITY = 3.0;
+
+// Check if a touch position is in the control areas (joystick or jump button)
+function isInControlArea(x: number, y: number): boolean {
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  const bottomControlsHeight = 200;
+  const isInBottomControls = y > screenHeight - bottomControlsHeight;
+  const isInLeftControls = x < 180;  // Joystick area
+  const isInRightControls = x > screenWidth - 120;  // Jump button area
+  return isInBottomControls && (isInLeftControls || isInRightControls);
+}
 
 export function useTouch(containerRef: React.RefObject<HTMLElement | null>): UseTouchReturn {
   const touchState = useRef<TouchState>({
@@ -42,124 +65,176 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     isCenterTouch: false,
   });
   
-  const touchStartTime = useRef(0);
-  const touchStartPos = useRef({ x: 0, y: 0 });
-  const lastTouchPos = useRef({ x: 0, y: 0 });
+  // Track multiple touches by ID
+  const trackedTouches = useRef<Map<number, TrackedTouch>>(new Map());
   const holdCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const pendingTap = useRef<{ x: number; y: number } | null>(null);
   
+  // Find the current "look" touch (one that's for looking, not on controls)
+  const getLookTouch = useCallback((): TrackedTouch | null => {
+    for (const touch of trackedTouches.current.values()) {
+      if (touch.isLookTouch) {
+        return touch;
+      }
+    }
+    return null;
+  }, []);
+  
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    
     // Don't capture touches on buttons or interactive elements
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
       return;
     }
     
-    const touch = e.touches[0];
-    touchStartTime.current = Date.now();
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-    
-    // Check if touch is in center area (not on joystick or jump button)
-    // Joystick is bottom-left, jump is bottom-right
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    const bottomControlsHeight = 200; // Height of bottom controls area
-    const isInBottomControls = touch.clientY > screenHeight - bottomControlsHeight;
-    const isInLeftControls = touch.clientX < 180; // Joystick area
-    const isInRightControls = touch.clientX > screenWidth - 120; // Jump button area
-    const isCenterTouch = !(isInBottomControls && (isInLeftControls || isInRightControls));
-    
-    touchState.current.isLooking = true;
-    touchState.current.isHolding = false;
-    touchState.current.holdDuration = 0;
-    touchState.current.totalMovement = 0;
-    touchState.current.isCenterTouch = isCenterTouch;
-    
-    // Start checking for hold
-    if (holdCheckInterval.current) {
-      clearInterval(holdCheckInterval.current);
-    }
-    holdCheckInterval.current = setInterval(() => {
-      const elapsed = Date.now() - touchStartTime.current;
-      touchState.current.holdDuration = elapsed;
+    // Process each new touch
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
       
-      if (elapsed >= HOLD_THRESHOLD) {
-        touchState.current.isHolding = true;
-      }
-    }, 50);
+      // Skip if already tracking this touch
+      if (trackedTouches.current.has(touch.identifier)) continue;
+      
+      // Check if this touch is in the control area
+      const inControlArea = isInControlArea(touch.clientX, touch.clientY);
+      
+      // If in control area, don't track for looking (controls handle themselves)
+      if (inControlArea) continue;
+      
+      // Create tracked touch
+      const tracked: TrackedTouch = {
+        id: touch.identifier,
+        startTime: Date.now(),
+        startPos: { x: touch.clientX, y: touch.clientY },
+        lastPos: { x: touch.clientX, y: touch.clientY },
+        totalMovement: 0,
+        isLookTouch: true,  // Not on controls = looking touch
+        isHolding: false,
+        holdDuration: 0,
+      };
+      
+      trackedTouches.current.set(touch.identifier, tracked);
+      
+      // Update state
+      touchState.current.isLooking = true;
+      touchState.current.isCenterTouch = true;
+      touchState.current.totalMovement = 0;
+      touchState.current.isHolding = false;
+      touchState.current.holdDuration = 0;
+    }
+    
+    // Start hold check interval if we have look touches
+    if (getLookTouch() && !holdCheckInterval.current) {
+      holdCheckInterval.current = setInterval(() => {
+        const lookTouch = getLookTouch();
+        if (lookTouch) {
+          const elapsed = Date.now() - lookTouch.startTime;
+          lookTouch.holdDuration = elapsed;
+          touchState.current.holdDuration = elapsed;
+          
+          if (elapsed >= HOLD_THRESHOLD) {
+            lookTouch.isHolding = true;
+            touchState.current.isHolding = true;
+          }
+        }
+      }, 50);
+    }
     
     e.preventDefault();
-  }, []);
+  }, [getLookTouch]);
   
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    
-    // Only process if we're looking (started on a valid area)
-    if (!touchState.current.isLooking) return;
-    
-    const touch = e.touches[0];
-    const rawDeltaX = touch.clientX - lastTouchPos.current.x;
-    const rawDeltaY = touch.clientY - lastTouchPos.current.y;
-    
-    // Track total movement (raw, before sensitivity)
-    touchState.current.totalMovement += Math.abs(rawDeltaX) + Math.abs(rawDeltaY);
-    
-    // Apply sensitivity for look delta
-    touchState.current.lookDelta.x += rawDeltaX * LOOK_SENSITIVITY;
-    touchState.current.lookDelta.y += rawDeltaY * LOOK_SENSITIVITY;
-    
-    lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+    // Process each moved touch
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const tracked = trackedTouches.current.get(touch.identifier);
+      
+      // Only process look touches we're tracking
+      if (!tracked || !tracked.isLookTouch) continue;
+      
+      const rawDeltaX = touch.clientX - tracked.lastPos.x;
+      const rawDeltaY = touch.clientY - tracked.lastPos.y;
+      
+      // Track total movement
+      tracked.totalMovement += Math.abs(rawDeltaX) + Math.abs(rawDeltaY);
+      touchState.current.totalMovement = tracked.totalMovement;
+      
+      // Apply look delta
+      touchState.current.lookDelta.x += rawDeltaX * LOOK_SENSITIVITY;
+      touchState.current.lookDelta.y += rawDeltaY * LOOK_SENSITIVITY;
+      
+      tracked.lastPos = { x: touch.clientX, y: touch.clientY };
+    }
     
     e.preventDefault();
   }, []);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
-    // Only process if we were looking (started on a valid area)
-    if (!touchState.current.isLooking) {
-      return;
+    // Process each ended touch
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const tracked = trackedTouches.current.get(touch.identifier);
+      
+      if (!tracked) continue;
+      
+      // Only process taps/holds for look touches
+      if (tracked.isLookTouch) {
+        const elapsed = Date.now() - tracked.startTime;
+        const movement = Math.sqrt(
+          Math.pow(tracked.lastPos.x - tracked.startPos.x, 2) +
+          Math.pow(tracked.lastPos.y - tracked.startPos.y, 2)
+        );
+        
+        // Check if it was a tap
+        if (elapsed < TAP_MAX_DURATION && movement < TAP_MAX_MOVEMENT) {
+          pendingTap.current = { 
+            x: tracked.startPos.x, 
+            y: tracked.startPos.y 
+          };
+          touchState.current.isTapping = true;
+        }
+      }
+      
+      // Remove from tracking
+      trackedTouches.current.delete(touch.identifier);
     }
     
-    const elapsed = Date.now() - touchStartTime.current;
-    const movement = Math.sqrt(
-      Math.pow(lastTouchPos.current.x - touchStartPos.current.x, 2) +
-      Math.pow(lastTouchPos.current.y - touchStartPos.current.y, 2)
-    );
-    
-    // Check if it was a tap (quick touch with minimal movement)
-    if (elapsed < TAP_MAX_DURATION && movement < TAP_MAX_MOVEMENT) {
-      pendingTap.current = { 
-        x: touchStartPos.current.x, 
-        y: touchStartPos.current.y 
-      };
-      touchState.current.isTapping = true;
+    // Update state based on remaining look touches
+    const remainingLookTouch = getLookTouch();
+    if (!remainingLookTouch) {
+      touchState.current.isLooking = false;
+      touchState.current.isHolding = false;
+      touchState.current.holdDuration = 0;
+      
+      // Clear hold check if no more look touches
+      if (holdCheckInterval.current) {
+        clearInterval(holdCheckInterval.current);
+        holdCheckInterval.current = null;
+      }
     }
-    
-    // Clear hold check
-    if (holdCheckInterval.current) {
-      clearInterval(holdCheckInterval.current);
-      holdCheckInterval.current = null;
-    }
-    
-    touchState.current.isLooking = false;
-    touchState.current.isHolding = false;
-    touchState.current.holdDuration = 0;
     
     e.preventDefault();
-  }, []);
+  }, [getLookTouch]);
   
-  const handleTouchCancel = useCallback(() => {
-    if (holdCheckInterval.current) {
-      clearInterval(holdCheckInterval.current);
-      holdCheckInterval.current = null;
+  const handleTouchCancel = useCallback((e: TouchEvent) => {
+    // Remove cancelled touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      trackedTouches.current.delete(touch.identifier);
     }
     
-    touchState.current.isLooking = false;
-    touchState.current.isHolding = false;
-    touchState.current.holdDuration = 0;
-  }, []);
+    // Update state
+    const remainingLookTouch = getLookTouch();
+    if (!remainingLookTouch) {
+      touchState.current.isLooking = false;
+      touchState.current.isHolding = false;
+      touchState.current.holdDuration = 0;
+      
+      if (holdCheckInterval.current) {
+        clearInterval(holdCheckInterval.current);
+        holdCheckInterval.current = null;
+      }
+    }
+  }, [getLookTouch]);
   
   useEffect(() => {
     const container = containerRef.current;
@@ -203,19 +278,17 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     return touchState.current.holdDuration;
   }, []);
   
-  // Check if the current hold is valid for breaking a block
-  // (centered touch with minimal movement)
   const isValidHoldForBreak = useCallback(() => {
     return touchState.current.isHolding && 
            touchState.current.isCenterTouch && 
            touchState.current.totalMovement < HOLD_MAX_MOVEMENT;
   }, []);
   
-  // Get the position where the current hold started
   const getHoldPosition = useCallback(() => {
-    if (!touchState.current.isLooking) return null;
-    return { ...touchStartPos.current };
-  }, []);
+    const lookTouch = getLookTouch();
+    if (!lookTouch) return null;
+    return { ...lookTouch.startPos };
+  }, [getLookTouch]);
   
   return {
     touchState,
