@@ -7,6 +7,7 @@ import { Scene } from './Scene';
 import { Hotbar } from '../ui/Hotbar';
 import { Crosshair } from '../ui/Crosshair';
 import { TsunamiTimer } from '../ui/TsunamiTimer';
+import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
 import { useGameStore } from '@/stores';
 
 export function Game() {
@@ -40,6 +41,7 @@ export function Game() {
       {/* UI Overlay */}
       {isLocked && (
         <>
+          <UnderwaterOverlay />
           <Crosshair />
           <Hotbar />
           <TsunamiTimer />
@@ -57,7 +59,7 @@ export function Game() {
       {!isLocked && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="text-center text-white">
-            <h1 className="text-4xl font-bold mb-4">Victor's World</h1>
+            <h1 className="text-4xl font-bold mb-4">Victor&apos;s World</h1>
             <p className="text-xl mb-2">Click to play</p>
             <div className="text-sm text-gray-300 space-y-1">
               <p>WASD - Move | Mouse - Look | 1-9 - Select block</p>

@@ -96,8 +96,8 @@ export function TsunamiSystem() {
     }
   });
   
-  // Render the water plane
-  const waterY = tsunami.waterLevel;
+  // Render the water plane - offset slightly above blocks to prevent z-fighting
+  const waterY = tsunami.waterLevel + 0.1;
   
   return (
     <mesh position={[0, waterY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -107,6 +107,7 @@ export function TsunamiSystem() {
         transparent
         opacity={0.6}
         side={THREE.DoubleSide}
+        depthWrite={false}
       />
     </mesh>
   );

@@ -14,6 +14,9 @@ const BLOCK_COLORS: Record<BlockType, string> = {
   [BlockType.WATER]: '#3b82f6',
   [BlockType.COBBLESTONE]: '#666666',
   [BlockType.PLANKS]: '#a67c52',
+  [BlockType.METAL]: '#2e8b57',  // Green metal
+  [BlockType.OBSIDIAN]: '#1a0a2e',  // Dark purple/black
+  [BlockType.PORTAL]: '#8b00ff',  // Purple portal
 };
 
 export function Hotbar() {

@@ -11,6 +11,9 @@ export enum BlockType {
   WATER = 7,
   COBBLESTONE = 8,
   PLANKS = 9,
+  METAL = 10,
+  OBSIDIAN = 11,
+  PORTAL = 12,
 }
 
 export interface BlockDefinition {
@@ -93,5 +96,26 @@ export const BLOCK_DEFINITIONS: Record<BlockType, BlockDefinition> = {
     solid: true,
     transparent: false,
     textureIndex: 10,
+  },
+  [BlockType.METAL]: {
+    id: BlockType.METAL,
+    name: 'Metal',
+    solid: true,
+    transparent: false,
+    textureIndex: 11,
+  },
+  [BlockType.OBSIDIAN]: {
+    id: BlockType.OBSIDIAN,
+    name: 'Obsidian',
+    solid: true,
+    transparent: false,
+    textureIndex: 12,
+  },
+  [BlockType.PORTAL]: {
+    id: BlockType.PORTAL,
+    name: 'Portal',
+    solid: false,
+    transparent: true,
+    textureIndex: 13,
   },
 };

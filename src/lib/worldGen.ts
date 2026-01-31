@@ -400,6 +400,143 @@ function generateHauntedMansionInChunk(
       placeBlock(tombX, baseY + 2, tombZ, BlockType.COBBLESTONE);
     }
   }
+  
+  // ===== MILITARY WAR TANK (right side of mansion) =====
+  generateWarTank(placeBlock, mansionX + MANSION_WIDTH + 10, baseY, mansionZ + 10);
+  
+  // ===== NETHER PORTAL (left side of mansion) =====
+  generateNetherPortal(placeBlock, mansionX - 12, baseY, mansionZ + 10);
+}
+
+/**
+ * Generate a military war tank with treads, hull, turret and cannon
+ */
+function generateWarTank(
+  placeBlock: PlaceBlockFn,
+  baseX: number,
+  baseY: number,
+  baseZ: number
+): void {
+  // Tank dimensions (facing +Z direction)
+  const hullLength = 10;  // Z direction
+  const hullWidth = 6;    // X direction
+  const hullHeight = 3;
+  
+  // ===== TREADS (left and right sides) =====
+  for (let z = 0; z < hullLength; z++) {
+    // Left tread
+    placeBlock(baseX, baseY, baseZ + z, BlockType.METAL);
+    placeBlock(baseX, baseY + 1, baseZ + z, BlockType.METAL);
+    // Right tread
+    placeBlock(baseX + hullWidth - 1, baseY, baseZ + z, BlockType.METAL);
+    placeBlock(baseX + hullWidth - 1, baseY + 1, baseZ + z, BlockType.METAL);
+  }
+  
+  // Tread wheels (darker accents)
+  for (let z = 1; z < hullLength - 1; z += 2) {
+    placeBlock(baseX - 1, baseY, baseZ + z, BlockType.COBBLESTONE);
+    placeBlock(baseX + hullWidth, baseY, baseZ + z, BlockType.COBBLESTONE);
+  }
+  
+  // ===== HULL (main body) =====
+  for (let y = 0; y < hullHeight; y++) {
+    for (let x = 1; x < hullWidth - 1; x++) {
+      for (let z = 1; z < hullLength - 1; z++) {
+        // Sloped front (z = 1, 2)
+        if (z <= 2 && y >= hullHeight - 1) {
+          continue; // Skip for sloped front
+        }
+        placeBlock(baseX + x, baseY + y + 1, baseZ + z, BlockType.METAL);
+      }
+    }
+  }
+  
+  // Front slope
+  for (let x = 1; x < hullWidth - 1; x++) {
+    placeBlock(baseX + x, baseY + 2, baseZ + 1, BlockType.METAL);
+    placeBlock(baseX + x, baseY + 3, baseZ + 2, BlockType.METAL);
+  }
+  
+  // ===== TURRET (on top of hull) =====
+  const turretX = baseX + 2;
+  const turretZ = baseZ + 4;
+  const turretY = baseY + hullHeight + 1;
+  const turretSize = 3;
+  
+  // Turret base
+  for (let x = 0; x < turretSize; x++) {
+    for (let z = 0; z < turretSize; z++) {
+      placeBlock(turretX + x, turretY, turretZ + z, BlockType.METAL);
+      placeBlock(turretX + x, turretY + 1, turretZ + z, BlockType.METAL);
+    }
+  }
+  
+  // Turret top (slightly smaller)
+  placeBlock(turretX + 1, turretY + 2, turretZ + 1, BlockType.METAL);
+  
+  // ===== MAIN CANNON =====
+  const cannonY = turretY + 1;
+  const cannonStartZ = turretZ + turretSize;
+  
+  // Cannon barrel extending forward
+  for (let cz = 0; cz < 5; cz++) {
+    placeBlock(turretX + 1, cannonY, cannonStartZ + cz, BlockType.METAL);
+  }
+  
+  // ===== COMMANDER HATCH =====
+  placeBlock(turretX + 1, turretY + 2, turretZ, BlockType.COBBLESTONE);
+  
+  // ===== REAR ENGINE DECK =====
+  for (let x = 1; x < hullWidth - 1; x++) {
+    placeBlock(baseX + x, baseY + hullHeight + 1, baseZ + hullLength - 2, BlockType.COBBLESTONE);
+  }
+}
+
+/**
+ * Generate a Nether portal with obsidian frame and purple portal blocks
+ */
+function generateNetherPortal(
+  placeBlock: PlaceBlockFn,
+  baseX: number,
+  baseY: number,
+  baseZ: number
+): void {
+  const portalWidth = 4;
+  const portalHeight = 5;
+  
+  // Build obsidian frame
+  // Bottom
+  for (let x = 0; x < portalWidth; x++) {
+    placeBlock(baseX + x, baseY, baseZ, BlockType.OBSIDIAN);
+  }
+  
+  // Top
+  for (let x = 0; x < portalWidth; x++) {
+    placeBlock(baseX + x, baseY + portalHeight, baseZ, BlockType.OBSIDIAN);
+  }
+  
+  // Left pillar
+  for (let y = 0; y <= portalHeight; y++) {
+    placeBlock(baseX, baseY + y, baseZ, BlockType.OBSIDIAN);
+  }
+  
+  // Right pillar
+  for (let y = 0; y <= portalHeight; y++) {
+    placeBlock(baseX + portalWidth - 1, baseY + y, baseZ, BlockType.OBSIDIAN);
+  }
+  
+  // Fill with portal blocks (inside the frame)
+  for (let x = 1; x < portalWidth - 1; x++) {
+    for (let y = 1; y < portalHeight; y++) {
+      placeBlock(baseX + x, baseY + y, baseZ, BlockType.PORTAL);
+    }
+  }
+  
+  // Add decorative corner pillars
+  placeBlock(baseX - 1, baseY, baseZ, BlockType.OBSIDIAN);
+  placeBlock(baseX - 1, baseY + 1, baseZ, BlockType.OBSIDIAN);
+  placeBlock(baseX + portalWidth, baseY, baseZ, BlockType.OBSIDIAN);
+  placeBlock(baseX + portalWidth, baseY + 1, baseZ, BlockType.OBSIDIAN);
 }
 
 /**
@@ -407,9 +544,9 @@ function generateHauntedMansionInChunk(
  */
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
   const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
-  const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 10;
+  const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 20;  // Include tank
   const mansionMinZ = MANSION_ORIGIN.z - 5;   // Include front steps
-  const mansionMaxZ = MANSION_ORIGIN.z + MANSION_DEPTH + 5;
+  const mansionMaxZ = MANSION_ORIGIN.z + MANSION_DEPTH + 10;  // Include tank
   
   const chunkMinX = chunkWorldX;
   const chunkMaxX = chunkWorldX + CHUNK_SIZE;
