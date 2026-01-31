@@ -547,7 +547,7 @@ function generateHauntedMansionInChunk(
       x: insidePortalX + 1.5,  // Center of portal interior
       y: insidePortalY + 1,
       z: insidePortalZ + 1,    // Step into portal
-      exitYaw: Math.PI,        // Facing -Z (north) toward the door
+      exitYaw: 0,        // Facing -Z (north) toward the door
     });
   }
 }

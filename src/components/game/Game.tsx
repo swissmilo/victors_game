@@ -169,7 +169,7 @@ export function Game() {
         <>
           <UnderwaterOverlay />
           <Crosshair hidden={isMobile} />
-          <Hotbar />
+          <Hotbar isMobile={isMobile} />
           <CatastropheTimer />
           
           {/* Mobile controls */}

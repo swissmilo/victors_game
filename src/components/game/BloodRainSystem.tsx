@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore, BLOOD_RAIN_COUNTDOWN, EARTHQUAKE_COUNTDOWN } from '@/stores';
+import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk } from '@/types';
 
 // Blood rain timing configuration
 const FADE_IN_DURATION = 3;     // Seconds to fade in
@@ -15,6 +16,15 @@ const RAIN_COUNT = 5000;
 const RAIN_AREA = 100;          // Area around player
 const RAIN_HEIGHT = 50;         // Height of rain column
 const RAIN_SPEED = 30;          // Fall speed
+
+// Grass → dirt conversion during blood rain
+const GRASS_TO_DIRT_CHANCE = 0.1;  // 10% per grass block (same as hotkey 1 → hotkey 2)
+const CHUNKS_PER_FRAME = 2;
+
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
 
 // Pre-generate random values outside component to avoid impure render
 function generateRainData() {
@@ -46,6 +56,8 @@ const rainMaterial = new THREE.PointsMaterial({
 export function BloodRainSystem() {
   const bloodRain = useGameStore((state) => state.bloodRain);
   const updateBloodRain = useGameStore((state) => state.updateBloodRain);
+  const chunks = useGameStore((state) => state.chunks);
+  const setChunk = useGameStore((state) => state.setChunk);
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
@@ -56,6 +68,8 @@ export function BloodRainSystem() {
   const phaseTimer = useRef(0);
   const pointsRef = useRef<THREE.Points>(null);
   const originalFogColor = useRef<THREE.Color | null>(null);
+  const chunksToProcess = useRef<string[]>([]);
+  const conversionSeed = useRef(0);
   
   // Reset opacity on mount
   useEffect(() => {
@@ -107,8 +121,23 @@ export function BloodRainSystem() {
       }
       
       case 'active': {
-        // Active blood rain
+        // Active blood rain – convert grass to dirt (10% per block), incremental
         phaseTimer.current += delta;
+        
+        // Start chunk processing on first frame of active
+        if (chunksToProcess.current.length === 0) {
+          chunksToProcess.current = Array.from(chunks.keys());
+          conversionSeed.current = Date.now();
+        }
+        if (chunksToProcess.current.length > 0) {
+          const keysThisFrame = chunksToProcess.current.splice(0, CHUNKS_PER_FRAME);
+          for (const key of keysThisFrame) {
+            const chunk = chunks.get(key);
+            if (chunk) {
+              processChunkGrassToDirt(chunk, setChunk, conversionSeed.current);
+            }
+          }
+        }
         
         if (phaseTimer.current >= ACTIVE_DURATION) {
           updateBloodRain({ phase: 'ending' });
@@ -217,4 +246,43 @@ export function BloodRainSystem() {
       )}
     </>
   );
+}
+
+/**
+ * During blood rain: 10% chance per grass block to turn into dirt (hotkey 1 → hotkey 2).
+ * Returns number of blocks converted.
+ */
+function processChunkGrassToDirt(
+  chunk: { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean },
+  setChunk: (position: { x: number; z: number }, chunk: { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }) => void,
+  seed: number
+): number {
+  let converted = 0;
+  let modified = false;
+  const chunkSeed = chunk.position.x * 1000 + chunk.position.z + seed * 0.001;
+
+  for (let y = 1; y < CHUNK_HEIGHT; y++) {
+    for (let x = 0; x < CHUNK_SIZE; x++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        const block = getBlockFromChunk(chunk.data, x, y, z);
+        if (block === BlockType.GRASS) {
+          const blockSeed = chunkSeed + x * 100 + y * 10000 + z;
+          if (seededRandom(blockSeed) < GRASS_TO_DIRT_CHANCE) {
+            setBlockInChunk(chunk.data, x, y, z, BlockType.DIRT);
+            modified = true;
+            converted++;
+          }
+        }
+      }
+    }
+  }
+
+  if (modified) {
+    setChunk(chunk.position, {
+      ...chunk,
+      data: new Uint8Array(chunk.data),
+      isDirty: true,
+    });
+  }
+  return converted;
 }
