@@ -17,6 +17,7 @@ interface SceneProps {
   consumeTap: () => { x: number; y: number } | null;
   isHolding: () => boolean;
   holdDuration: () => number;
+  isValidHoldForBreak: () => boolean;
 }
 
 export function Scene({ 
@@ -27,6 +28,7 @@ export function Scene({
   consumeTap,
   isHolding,
   holdDuration,
+  isValidHoldForBreak,
 }: SceneProps) {
   // On mobile, controls are always active; on desktop, only when pointer is locked
   const controlsActive = isMobile || isLocked;
@@ -72,6 +74,7 @@ export function Scene({
         consumeTap={consumeTap}
         isHolding={isHolding}
         holdDuration={holdDuration}
+        isValidHoldForBreak={isValidHoldForBreak}
       />
       
       {/* Voxel world - render distance 8 = ~128 blocks, unload at 12 */}

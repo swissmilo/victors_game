@@ -1,6 +1,12 @@
 'use client';
 
-export function Crosshair() {
+interface CrosshairProps {
+  hidden?: boolean;
+}
+
+export function Crosshair({ hidden = false }: CrosshairProps) {
+  if (hidden) return null;
+  
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
       <div className="relative w-6 h-6">

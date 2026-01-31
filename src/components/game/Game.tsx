@@ -30,7 +30,7 @@ export function Game() {
   const [isMobile] = useState(() => isTouchDevice());
   
   const { isLocked, requestLock, consumeMovement } = usePointerLock(containerRef);
-  const { consumeLookDelta, consumeTap, isHolding, holdDuration } = useTouch(containerRef);
+  const { consumeLookDelta, consumeTap, isHolding, holdDuration, isValidHoldForBreak } = useTouch(containerRef);
   const setIsPlaying = useGameStore((state) => state.setIsPlaying);
   const isFlying = useGameStore((state) => state.isFlying);
   const saveGame = useGameStore((state) => state.saveGame);
@@ -127,6 +127,7 @@ export function Game() {
                 consumeTap={consumeTap}
                 isHolding={isHolding}
                 holdDuration={holdDuration}
+                isValidHoldForBreak={isValidHoldForBreak}
               />
             </Suspense>
           </Canvas>
@@ -158,7 +159,7 @@ export function Game() {
       {gameStarted && (isLocked || isMobile) && !showMenu && (
         <>
           <UnderwaterOverlay />
-          <Crosshair />
+          <Crosshair hidden={isMobile} />
           <Hotbar />
           <CatastropheTimer />
           

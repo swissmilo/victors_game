@@ -13,6 +13,7 @@ interface BlockSelectorProps {
   consumeTap?: () => { x: number; y: number } | null;
   isHolding?: () => boolean;
   holdDuration?: () => number;
+  isValidHoldForBreak?: () => boolean;
 }
 
 // Hold duration needed to break a block on mobile (ms)
@@ -24,6 +25,7 @@ export function BlockSelector({
   consumeTap,
   isHolding,
   holdDuration,
+  isValidHoldForBreak,
 }: BlockSelectorProps) {
   const { camera } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
@@ -188,12 +190,14 @@ export function BlockSelector({
         }
       }
       
-      // Check for hold (break block)
-      if (isHolding && holdDuration) {
+      // Check for hold (break block) - only if valid hold (centered, minimal movement)
+      if (isHolding && holdDuration && isValidHoldForBreak) {
         const holding = isHolding();
         const duration = holdDuration();
+        const validHold = isValidHoldForBreak();
         
-        if (holding && duration >= HOLD_BREAK_THRESHOLD && !hasTriggeredBreak.current && hit) {
+        // Only break if: holding, long enough, valid hold position, and haven't already triggered
+        if (holding && duration >= HOLD_BREAK_THRESHOLD && validHold && !hasTriggeredBreak.current && hit) {
           breakBlock();
           hasTriggeredBreak.current = true;
         }

@@ -9,6 +9,8 @@ interface TouchState {
   isHolding: boolean;
   holdDuration: number;
   tapPosition: { x: number; y: number } | null;
+  totalMovement: number;  // Track total movement during touch
+  isCenterTouch: boolean; // Whether touch started in center area (not on controls)
 }
 
 interface UseTouchReturn {
@@ -17,13 +19,15 @@ interface UseTouchReturn {
   consumeTap: () => { x: number; y: number } | null;
   isHolding: () => boolean;
   holdDuration: () => number;
+  isValidHoldForBreak: () => boolean;  // Check if hold is valid for breaking blocks
 }
 
 // Thresholds
 const TAP_MAX_DURATION = 200;    // Max ms for a tap
 const TAP_MAX_MOVEMENT = 20;     // Max pixels movement for a tap
 const HOLD_THRESHOLD = 400;      // Ms to trigger hold
-const LOOK_SENSITIVITY = 0.5;    // Touch look sensitivity multiplier
+const HOLD_MAX_MOVEMENT = 15;    // Max pixels movement during hold for block break
+const LOOK_SENSITIVITY = 3.0;    // Touch look sensitivity multiplier (increased for faster turning)
 
 export function useTouch(containerRef: React.RefObject<HTMLElement | null>): UseTouchReturn {
   const touchState = useRef<TouchState>({
@@ -33,6 +37,8 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     isHolding: false,
     holdDuration: 0,
     tapPosition: null,
+    totalMovement: 0,
+    isCenterTouch: false,
   });
   
   const touchStartTime = useRef(0);
@@ -55,9 +61,21 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
     lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     
+    // Check if touch is in center area (not on joystick or jump button)
+    // Joystick is bottom-left, jump is bottom-right
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const bottomControlsHeight = 200; // Height of bottom controls area
+    const isInBottomControls = touch.clientY > screenHeight - bottomControlsHeight;
+    const isInLeftControls = touch.clientX < 180; // Joystick area
+    const isInRightControls = touch.clientX > screenWidth - 120; // Jump button area
+    const isCenterTouch = !(isInBottomControls && (isInLeftControls || isInRightControls));
+    
     touchState.current.isLooking = true;
     touchState.current.isHolding = false;
     touchState.current.holdDuration = 0;
+    touchState.current.totalMovement = 0;
+    touchState.current.isCenterTouch = isCenterTouch;
     
     // Start checking for hold
     if (holdCheckInterval.current) {
@@ -82,11 +100,15 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     if (!touchState.current.isLooking) return;
     
     const touch = e.touches[0];
-    const deltaX = (touch.clientX - lastTouchPos.current.x) * LOOK_SENSITIVITY;
-    const deltaY = (touch.clientY - lastTouchPos.current.y) * LOOK_SENSITIVITY;
+    const rawDeltaX = touch.clientX - lastTouchPos.current.x;
+    const rawDeltaY = touch.clientY - lastTouchPos.current.y;
     
-    touchState.current.lookDelta.x += deltaX;
-    touchState.current.lookDelta.y += deltaY;
+    // Track total movement (raw, before sensitivity)
+    touchState.current.totalMovement += Math.abs(rawDeltaX) + Math.abs(rawDeltaY);
+    
+    // Apply sensitivity for look delta
+    touchState.current.lookDelta.x += rawDeltaX * LOOK_SENSITIVITY;
+    touchState.current.lookDelta.y += rawDeltaY * LOOK_SENSITIVITY;
     
     lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     
@@ -180,11 +202,20 @@ export function useTouch(containerRef: React.RefObject<HTMLElement | null>): Use
     return touchState.current.holdDuration;
   }, []);
   
+  // Check if the current hold is valid for breaking a block
+  // (centered touch with minimal movement)
+  const isValidHoldForBreak = useCallback(() => {
+    return touchState.current.isHolding && 
+           touchState.current.isCenterTouch && 
+           touchState.current.totalMovement < HOLD_MAX_MOVEMENT;
+  }, []);
+  
   return {
     touchState,
     consumeLookDelta,
     consumeTap,
     isHolding,
     holdDuration,
+    isValidHoldForBreak,
   };
 }
