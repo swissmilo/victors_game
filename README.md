@@ -1,4 +1,4 @@
-# Voxel World
+# Victor's World
 
 A Minecraft-style 3D voxel game built with Next.js, Three.js, and React Three Fiber.
 
@@ -68,33 +68,6 @@ src/
     └── world.ts        # World/chunk types
 ```
 
-## Development Roadmap
-
-### Phase 1: Foundation (Current) ✓
-- [x] Project setup with Next.js + TypeScript
-- [x] Three.js integration with React Three Fiber
-- [x] Physics engine with Rapier
-- [x] Basic 3D scene with lighting
-- [x] First-person camera controls
-- [x] Ground terrain for testing
-
-### Phase 2: Voxel World
-- [ ] Chunk-based world system
-- [ ] Block meshing algorithm
-- [ ] Texture atlas for blocks
-- [ ] Procedural terrain generation
-
-### Phase 3: Block Interaction
-- [ ] Raycasting for block selection
-- [ ] Block breaking
-- [ ] Block placing
-- [ ] Chunk mesh updates
-
-### Phase 4: Polish
-- [ ] Multi-chunk loading/unloading
-- [ ] Performance optimizations
-- [ ] World persistence (localStorage)
-- [ ] Visual polish (particles, AO)
 
 ## License
 
