@@ -75,7 +75,7 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [setHotbarSelection]);
+  }, [setHotbarSelection, isFlying, setIsFlying]);
 
   useFrame((_, delta) => {
     // Clamp delta to prevent huge jumps

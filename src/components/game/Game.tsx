@@ -12,6 +12,7 @@ export function Game() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { isLocked, requestLock, consumeMovement } = usePointerLock(containerRef);
   const setIsPlaying = useGameStore((state) => state.setIsPlaying);
+  const isFlying = useGameStore((state) => state.isFlying);
 
   const handleClick = useCallback(() => {
     if (!isLocked) {
@@ -27,7 +28,6 @@ export function Game() {
       onClick={handleClick}
     >
       <Canvas
-        shadows
         camera={{ fov: 75, near: 0.1, far: 1000 }}
         gl={{ antialias: true }}
       >
@@ -41,6 +41,13 @@ export function Game() {
         <>
           <Crosshair />
           <Hotbar />
+          
+          {/* Flying indicator */}
+          {isFlying && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">
+              Flying
+            </div>
+          )}
         </>
       )}
       
@@ -50,9 +57,11 @@ export function Game() {
           <div className="text-center text-white">
             <h1 className="text-4xl font-bold mb-4">Voxel World</h1>
             <p className="text-xl mb-2">Click to play</p>
-            <p className="text-sm text-gray-300">
-              WASD - Move | Space - Jump | Mouse - Look | 1-9 - Select block
-            </p>
+            <div className="text-sm text-gray-300 space-y-1">
+              <p>WASD - Move | Mouse - Look | 1-9 - Select block</p>
+              <p>Space - Jump | Double-tap Space - Toggle fly</p>
+              <p>Left Click - Break | Right Click - Place</p>
+            </div>
           </div>
         </div>
       )}
