@@ -197,6 +197,17 @@ export function BlockSelector({
     if (!enabled) return;
 
     const handleMouseDown = (event: MouseEvent) => {
+      // Ignore clicks on UI elements (hotbar, buttons, etc.)
+      const target = event.target as HTMLElement;
+      if (
+        target.closest('button') ||
+        target.closest('a') ||
+        target.closest('[role="button"]') ||
+        target.closest('[data-hotbar]')
+      ) {
+        return;
+      }
+
       const now = Date.now();
       if (event.button === 0) {
         // Left click - break
