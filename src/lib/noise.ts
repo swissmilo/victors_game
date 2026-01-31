@@ -31,10 +31,17 @@ function lerp(t: number, a: number, b: number): number {
   return a + t * (b - a);
 }
 
-function grad(hash: number, x: number, y: number): number {
+function grad2D(hash: number, x: number, y: number): number {
   const h = hash & 3;
   const u = h < 2 ? x : y;
   const v = h < 2 ? y : x;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+
+function grad3D(hash: number, x: number, y: number, z: number): number {
+  const h = hash & 15;
+  const u = h < 8 ? x : y;
+  const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
   return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
 }
 
@@ -64,10 +71,55 @@ export function noise2D(x: number, y: number): number {
   const bb = p[p[X + 1] + Y + 1];
 
   // Blend results from 4 corners
-  const x1 = lerp(u, grad(aa, xf, yf), grad(ba, xf - 1, yf));
-  const x2 = lerp(u, grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1));
+  const x1 = lerp(u, grad2D(aa, xf, yf), grad2D(ba, xf - 1, yf));
+  const x2 = lerp(u, grad2D(ab, xf, yf - 1), grad2D(bb, xf - 1, yf - 1));
 
   return lerp(v, x1, x2);
+}
+
+/**
+ * 3D Perlin noise function
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param z Z coordinate
+ * @returns Noise value between -1 and 1
+ */
+export function noise3D(x: number, y: number, z: number): number {
+  // Find unit grid cell containing point
+  const X = Math.floor(x) & 255;
+  const Y = Math.floor(y) & 255;
+  const Z = Math.floor(z) & 255;
+
+  // Get relative position within cell
+  const xf = x - Math.floor(x);
+  const yf = y - Math.floor(y);
+  const zf = z - Math.floor(z);
+
+  // Compute fade curves
+  const u = fade(xf);
+  const v = fade(yf);
+  const w = fade(zf);
+
+  // Hash coordinates of the 8 cube corners
+  const aaa = p[p[p[X] + Y] + Z];
+  const aba = p[p[p[X] + Y + 1] + Z];
+  const aab = p[p[p[X] + Y] + Z + 1];
+  const abb = p[p[p[X] + Y + 1] + Z + 1];
+  const baa = p[p[p[X + 1] + Y] + Z];
+  const bba = p[p[p[X + 1] + Y + 1] + Z];
+  const bab = p[p[p[X + 1] + Y] + Z + 1];
+  const bbb = p[p[p[X + 1] + Y + 1] + Z + 1];
+
+  // Blend results from 8 corners
+  const x1 = lerp(u, grad3D(aaa, xf, yf, zf), grad3D(baa, xf - 1, yf, zf));
+  const x2 = lerp(u, grad3D(aba, xf, yf - 1, zf), grad3D(bba, xf - 1, yf - 1, zf));
+  const y1 = lerp(v, x1, x2);
+
+  const x3 = lerp(u, grad3D(aab, xf, yf, zf - 1), grad3D(bab, xf - 1, yf, zf - 1));
+  const x4 = lerp(u, grad3D(abb, xf, yf - 1, zf - 1), grad3D(bbb, xf - 1, yf - 1, zf - 1));
+  const y2 = lerp(v, x3, x4);
+
+  return lerp(w, y1, y2);
 }
 
 /**
@@ -100,4 +152,132 @@ export function fbm(
 
   // Normalize to 0-1 range
   return (total / maxValue + 1) / 2;
+}
+
+/**
+ * 3D Fractal Brownian Motion for caves
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param z Z coordinate
+ * @param octaves Number of noise layers
+ * @param persistence How much each octave contributes
+ * @param scale Initial scale of the noise
+ * @returns Noise value normalized to roughly 0-1
+ */
+export function fbm3D(
+  x: number,
+  y: number,
+  z: number,
+  octaves: number = 3,
+  persistence: number = 0.5,
+  scale: number = 0.05
+): number {
+  let total = 0;
+  let frequency = scale;
+  let amplitude = 1;
+  let maxValue = 0;
+
+  for (let i = 0; i < octaves; i++) {
+    total += noise3D(x * frequency, y * frequency, z * frequency) * amplitude;
+    maxValue += amplitude;
+    amplitude *= persistence;
+    frequency *= 2;
+  }
+
+  // Normalize to 0-1 range
+  return (total / maxValue + 1) / 2;
+}
+
+/**
+ * Ridge noise - creates sharp ridges useful for mountain peaks
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param scale Scale of the noise
+ * @returns Noise value between 0 and 1
+ */
+export function ridgeNoise(x: number, y: number, scale: number = 0.01): number {
+  const n = noise2D(x * scale, y * scale);
+  return 1 - Math.abs(n);
+}
+
+/**
+ * Multi-octave ridge noise for dramatic mountain ranges
+ */
+export function ridgeFbm(
+  x: number,
+  y: number,
+  octaves: number = 4,
+  persistence: number = 0.5,
+  scale: number = 0.01
+): number {
+  let total = 0;
+  let frequency = scale;
+  let amplitude = 1;
+  let maxValue = 0;
+  let weight = 1;
+
+  for (let i = 0; i < octaves; i++) {
+    const n = 1 - Math.abs(noise2D(x * frequency, y * frequency));
+    // Weight successive octaves by previous
+    const weighted = n * n * weight;
+    weight = Math.min(1, weighted * 2);
+    
+    total += weighted * amplitude;
+    maxValue += amplitude;
+    amplitude *= persistence;
+    frequency *= 2;
+  }
+
+  return total / maxValue;
+}
+
+/**
+ * Domain warping - distorts coordinates for more organic shapes
+ */
+export function warpedFbm(
+  x: number,
+  y: number,
+  octaves: number = 4,
+  persistence: number = 0.5,
+  scale: number = 0.01,
+  warpStrength: number = 20
+): number {
+  // First pass - get warp offsets
+  const warpX = fbm(x + 100, y + 100, 2, 0.5, scale * 0.5);
+  const warpY = fbm(x + 200, y + 200, 2, 0.5, scale * 0.5);
+  
+  // Apply warping
+  const warpedX = x + (warpX - 0.5) * warpStrength;
+  const warpedY = y + (warpY - 0.5) * warpStrength;
+  
+  // Get noise at warped coordinates
+  return fbm(warpedX, warpedY, octaves, persistence, scale);
+}
+
+/**
+ * Voronoi-like noise for creating distinct regions
+ */
+export function cellNoise(x: number, y: number, scale: number = 0.02): number {
+  const sx = x * scale;
+  const sy = y * scale;
+  const ix = Math.floor(sx);
+  const iy = Math.floor(sy);
+  
+  let minDist = 10;
+  
+  // Check 3x3 neighborhood
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const cx = ix + dx;
+      const cy = iy + dy;
+      // Pseudo-random point in cell
+      const px = cx + (noise2D(cx * 127.1, cy * 311.7) + 1) * 0.5;
+      const py = cy + (noise2D(cx * 269.5, cy * 183.3) + 1) * 0.5;
+      
+      const dist = Math.sqrt((sx - px) * (sx - px) + (sy - py) * (sy - py));
+      minDist = Math.min(minDist, dist);
+    }
+  }
+  
+  return minDist;
 }

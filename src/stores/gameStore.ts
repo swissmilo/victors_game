@@ -10,6 +10,19 @@ interface InventorySlot {
 // Catastrophe types
 export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain';
 
+// Catastrophe sequence - order in which they occur
+const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain'];
+
+// Get a random starting point in the catastrophe sequence
+function getRandomCatastropheStart(): { current: CatastropheType; next: CatastropheType } {
+  const startIndex = Math.floor(Math.random() * CATASTROPHE_SEQUENCE.length);
+  const nextIndex = (startIndex + 1) % CATASTROPHE_SEQUENCE.length;
+  return {
+    current: CATASTROPHE_SEQUENCE[startIndex],
+    next: CATASTROPHE_SEQUENCE[nextIndex],
+  };
+}
+
 // Tsunami phases
 export type TsunamiPhase = 'countdown' | 'rising' | 'peak' | 'falling';
 
@@ -205,6 +218,9 @@ const INITIAL_BLOOD_RAIN: BloodRainState = {
   duration: BLOOD_RAIN_DURATION,
 };
 
+// Get random starting catastrophe for initial state
+const initialCatastrophe = getRandomCatastropheStart();
+
 export const useGameStore = create<GameState>((set, get) => ({
   // Initial state
   playerPosition: [0, 20, 0],
@@ -218,8 +234,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   isFlying: false,
-  currentCatastrophe: 'black_hole',
-  nextCatastrophe: 'tsunami',
+  currentCatastrophe: initialCatastrophe.current,
+  nextCatastrophe: initialCatastrophe.next,
   earthquake: INITIAL_EARTHQUAKE,
   blackHole: INITIAL_BLACK_HOLE,
   tsunami: INITIAL_TSUNAMI,
@@ -358,14 +374,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   switchToNextCatastrophe: () => {
     const { currentCatastrophe } = get();
     // Cycle: earthquake → black_hole → tsunami → blood_rain → earthquake
-    const sequence: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain'];
-    const currentIndex = sequence.indexOf(currentCatastrophe);
-    const nextIndex = (currentIndex + 1) % sequence.length;
-    const afterNextIndex = (currentIndex + 2) % sequence.length;
+    const currentIndex = CATASTROPHE_SEQUENCE.indexOf(currentCatastrophe);
+    const nextIndex = (currentIndex + 1) % CATASTROPHE_SEQUENCE.length;
+    const afterNextIndex = (currentIndex + 2) % CATASTROPHE_SEQUENCE.length;
     
     set({
-      currentCatastrophe: sequence[nextIndex],
-      nextCatastrophe: sequence[afterNextIndex],
+      currentCatastrophe: CATASTROPHE_SEQUENCE[nextIndex],
+      nextCatastrophe: CATASTROPHE_SEQUENCE[afterNextIndex],
     });
   },
   
@@ -418,6 +433,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!saveData) return false;
     
     const chunks = convertLoadedChunks(saveData.chunks, saveData.version);
+    const randomStart = getRandomCatastropheStart();
     set({
       playerPosition: saveData.playerPosition,
       playerRotation: saveData.playerRotation,
@@ -426,8 +442,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       hotbarSelection: saveData.hotbarSelection,
       chunks,
       teleporters: [],  // Reset teleporters - they'll need to be re-placed
-      currentCatastrophe: 'black_hole',
-      nextCatastrophe: 'tsunami',
+      currentCatastrophe: randomStart.current,
+      nextCatastrophe: randomStart.next,
       earthquake: INITIAL_EARTHQUAKE,
       blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,
@@ -442,6 +458,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   resetWorld: () => {
+    const randomStart = getRandomCatastropheStart();
     set({
       playerPosition: [8, 50, 8],
       playerRotation: [0, 0],
@@ -453,8 +470,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       isPlaying: false,
       isPaused: false,
       isFlying: false,
-      currentCatastrophe: 'black_hole',
-      nextCatastrophe: 'tsunami',
+      currentCatastrophe: randomStart.current,
+      nextCatastrophe: randomStart.next,
       earthquake: INITIAL_EARTHQUAKE,
       blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,

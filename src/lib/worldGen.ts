@@ -1,6 +1,6 @@
 // World generation utilities
 
-import { fbm } from './noise';
+import { fbm, fbm3D, ridgeFbm, warpedFbm, cellNoise } from './noise';
 import {
   BlockType,
   ChunkData,
@@ -12,8 +12,14 @@ import {
 } from '@/types';
 
 const SEA_LEVEL = 32;
-const TERRAIN_HEIGHT = 20;
-const BASE_HEIGHT = 24;
+const BASE_HEIGHT = 25;
+const MIN_HEIGHT = 8;
+const MAX_HEIGHT = 58;
+
+// Cave parameters
+const CAVE_SCALE = 0.055;
+const CAVE_THRESHOLD = 0.40;
+const CAVE_ENTRANCE_SCALE = 0.03;
 
 // Gothic Mansion location (near spawn)
 const MANSION_ORIGIN = { x: 25, z: 20 };
@@ -47,11 +53,104 @@ function seededRandom(seed: number): () => number {
 }
 
 /**
- * Get the terrain height at a world position using the same noise as chunk generation
+ * Get the terrain height at a world position using advanced layered noise
  */
 function getTerrainHeightAt(worldX: number, worldZ: number): number {
-  const noiseValue = fbm(worldX, worldZ, 4, 0.5, 0.02);
-  return Math.floor(BASE_HEIGHT + noiseValue * TERRAIN_HEIGHT);
+  // Layer 1: Continental/biome scale (very low frequency)
+  // Determines major landmasses vs lowlands
+  const continental = warpedFbm(worldX, worldZ, 2, 0.5, 0.002, 50);
+  
+  // Layer 2: Mountain ridges using multi-octave ridge noise
+  // Creates dramatic sharp mountain ranges
+  const ridges = ridgeFbm(worldX, worldZ, 5, 0.5, 0.006);
+  const ridgeHeight = Math.pow(ridges, 1.5) * 35; // 0-35 blocks
+  
+  // Layer 3: Valleys carved using inverted warped noise
+  const valleyNoise = warpedFbm(worldX + 500, worldZ + 500, 3, 0.6, 0.008, 30);
+  const valley = Math.pow(valleyNoise, 0.5); // Square root for sharper valleys
+  
+  // Layer 4: Cell noise for plateau/mesa regions
+  const cells = cellNoise(worldX, worldZ, 0.015);
+  const plateaus = cells > 0.3 ? (cells - 0.3) * 15 : 0;
+  
+  // Layer 5: Fine detail
+  const detail = fbm(worldX, worldZ, 4, 0.5, 0.03);
+  const detailHeight = (detail - 0.5) * 6;
+  
+  // Combine layers based on continental value
+  let height = BASE_HEIGHT;
+  
+  // Continental raises/lowers base terrain
+  height += (continental - 0.5) * 12;
+  
+  // Mountains in highland areas (continental > 0.45)
+  const mountainMask = Math.max(0, Math.min(1, (continental - 0.4) * 3));
+  height += ridgeHeight * mountainMask;
+  
+  // Valleys cut deeper in lowland areas
+  const valleyMask = Math.max(0, Math.min(1, (0.6 - continental) * 2.5));
+  height -= (1 - valley) * 18 * valleyMask;
+  
+  // Plateaus in mid-range areas
+  const plateauMask = 1 - Math.abs(continental - 0.5) * 2;
+  height += plateaus * Math.max(0, plateauMask);
+  
+  // Always add fine detail
+  height += detailHeight;
+  
+  // Clamp to valid range
+  return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.floor(height)));
+}
+
+/**
+ * Check if a position should be a cave entrance (opens to surface)
+ */
+function isCaveEntrance(worldX: number, worldZ: number): boolean {
+  // Use cell noise to create distinct entrance locations
+  const entranceNoise = cellNoise(worldX, worldZ, CAVE_ENTRANCE_SCALE);
+  // Entrance where cell distance is very small (near cell center)
+  return entranceNoise < 0.12;
+}
+
+/**
+ * Check if a position should be a cave
+ */
+function isCave(worldX: number, worldY: number, worldZ: number, surfaceHeight: number): boolean {
+  // Check for cave entrance that extends to surface
+  const isEntrance = isCaveEntrance(worldX, worldZ);
+  
+  // Cave entrances can go closer to surface
+  const minDepthFromSurface = isEntrance ? 0 : 4;
+  
+  // No caves at very bottom (bedrock layer)
+  if (worldY <= 2) return false;
+  
+  // No caves above surface
+  if (worldY >= surfaceHeight) return false;
+  
+  // No regular caves too close to surface (unless entrance)
+  if (worldY >= surfaceHeight - minDepthFromSurface) return false;
+  
+  // Main cave noise - sponge-like caves
+  const caveNoise = fbm3D(worldX, worldY, worldZ, 3, 0.5, CAVE_SCALE);
+  
+  // Horizontal tunnel noise (stretched vertically for horizontal tunnels)
+  const tunnelNoise = fbm3D(worldX, worldY * 0.4, worldZ, 2, 0.5, 0.035);
+  
+  // Vertical shaft noise (stretched horizontally for vertical shafts)
+  const shaftNoise = fbm3D(worldX * 0.3, worldY, worldZ * 0.3, 2, 0.5, 0.04);
+  
+  // Combine different cave types
+  const combined = Math.min(caveNoise, Math.min(tunnelNoise, shaftNoise));
+  
+  // Cave entrances have higher threshold (bigger opening)
+  const threshold = isEntrance ? CAVE_THRESHOLD + 0.08 : CAVE_THRESHOLD;
+  
+  // Caves more common at mid-depths, less at very bottom and near surface
+  const depthRatio = worldY / surfaceHeight;
+  const depthFactor = 1 - Math.abs(depthRatio - 0.4) * 0.5;
+  
+  return combined * depthFactor < threshold;
 }
 
 // Block placement helper type
@@ -610,11 +709,20 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   const worldX = position.x * CHUNK_SIZE;
   const worldZ = position.z * CHUNK_SIZE;
 
+  // Pre-calculate heights for this chunk
+  const heights: number[][] = [];
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    heights[x] = [];
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      heights[x][z] = getTerrainHeightAt(worldX + x, worldZ + z);
+    }
+  }
+
   for (let x = 0; x < CHUNK_SIZE; x++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
-      // Get height from noise
-      const noiseValue = fbm(worldX + x, worldZ + z, 4, 0.5, 0.02);
-      const height = Math.floor(BASE_HEIGHT + noiseValue * TERRAIN_HEIGHT);
+      const height = heights[x][z];
+      const wx = worldX + x;
+      const wz = worldZ + z;
       
       // Fill blocks from bottom to height
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
@@ -623,18 +731,32 @@ export function generateChunk(position: ChunkPosition): ChunkData {
         if (y === 0) {
           // Bedrock at bottom (using stone for now)
           blockType = BlockType.STONE;
-        } else if (y < height - 4) {
-          // Deep stone layer
-          blockType = BlockType.STONE;
-        } else if (y < height - 1) {
-          // Dirt layer
-          blockType = BlockType.DIRT;
         } else if (y < height) {
-          // Top layer - grass or sand in low areas
-          if (height <= SEA_LEVEL + 1) {
-            blockType = BlockType.SAND;
+          // Check for caves first
+          if (isCave(wx, y, wz, height)) {
+            blockType = BlockType.AIR;
+          } else if (y < height - 4) {
+            // Deep stone layer - add some ore variation
+            const oreNoise = fbm3D(wx, y, wz, 2, 0.5, 0.1);
+            if (oreNoise > 0.75 && y < 20) {
+              // Cobblestone patches in deep areas
+              blockType = BlockType.COBBLESTONE;
+            } else {
+              blockType = BlockType.STONE;
+            }
+          } else if (y < height - 1) {
+            // Dirt layer
+            blockType = BlockType.DIRT;
           } else {
-            blockType = BlockType.GRASS;
+            // Top layer - varies by height
+            if (height <= SEA_LEVEL + 1) {
+              blockType = BlockType.SAND;
+            } else if (height > 45) {
+              // High altitude = stone peaks
+              blockType = BlockType.STONE;
+            } else {
+              blockType = BlockType.GRASS;
+            }
           }
         }
         // No permanent water - water only appears during tsunami
