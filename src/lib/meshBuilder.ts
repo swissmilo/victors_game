@@ -5,22 +5,18 @@
 
 import * as THREE from 'three';
 import { BlockType, BLOCK_DEFINITIONS, ChunkData, CHUNK_SIZE, CHUNK_HEIGHT, getBlockFromChunk } from '@/types';
+import { getTextureUVs } from './textureAtlas';
 
 // Face directions: [dx, dy, dz, face index]
 // Face indices: 0=top, 1=bottom, 2=front(+z), 3=back(-z), 4=left(-x), 5=right(+x)
 const FACES = [
-  { dir: [0, 1, 0], corners: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], uvRow: 0 },   // top
-  { dir: [0, -1, 0], corners: [[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]], uvRow: 1 },  // bottom
-  { dir: [0, 0, 1], corners: [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]], uvRow: 2 },   // front
-  { dir: [0, 0, -1], corners: [[1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 0]], uvRow: 3 },  // back
-  { dir: [-1, 0, 0], corners: [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]], uvRow: 4 },  // left
-  { dir: [1, 0, 0], corners: [[1, 0, 1], [1, 1, 1], [1, 1, 0], [1, 0, 0]], uvRow: 5 },   // right
+  { dir: [0, 1, 0], corners: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]] },   // top
+  { dir: [0, -1, 0], corners: [[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]] },  // bottom
+  { dir: [0, 0, 1], corners: [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]] },   // front
+  { dir: [0, 0, -1], corners: [[1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 0]] },  // back
+  { dir: [-1, 0, 0], corners: [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]] },  // left
+  { dir: [1, 0, 0], corners: [[1, 0, 1], [1, 1, 1], [1, 1, 0], [1, 0, 0]] },   // right
 ] as const;
-
-// Texture atlas configuration
-const TEXTURE_SIZE = 16; // pixels per texture
-const ATLAS_SIZE = 256;  // total atlas size in pixels
-const TEXTURES_PER_ROW = ATLAS_SIZE / TEXTURE_SIZE; // 16 textures per row
 
 export interface ChunkMeshData {
   positions: Float32Array;
@@ -46,21 +42,6 @@ function getTextureIndex(blockType: BlockType, faceIndex: number): number {
 }
 
 /**
- * Get UV coordinates for a texture index in the atlas
- */
-function getUVs(textureIndex: number): [number, number, number, number] {
-  const col = textureIndex % TEXTURES_PER_ROW;
-  const row = Math.floor(textureIndex / TEXTURES_PER_ROW);
-  
-  const u0 = col / TEXTURES_PER_ROW;
-  const v0 = 1 - (row + 1) / TEXTURES_PER_ROW;
-  const u1 = (col + 1) / TEXTURES_PER_ROW;
-  const v1 = 1 - row / TEXTURES_PER_ROW;
-  
-  return [u0, v0, u1, v1];
-}
-
-/**
  * Check if a block at the given position is solid (for face culling)
  */
 function isBlockSolid(chunk: ChunkData, x: number, y: number, z: number): boolean {
@@ -79,61 +60,19 @@ function isBlockTransparent(chunk: ChunkData, x: number, y: number, z: number): 
 }
 
 /**
- * Get base color for a block type (brighter, Minecraft-like colors)
+ * Get face shading multiplier (simulates simple ambient occlusion)
+ * Top faces are bright, side faces medium, bottom faces darker
  */
-function getBlockBaseColor(blockType: BlockType): [number, number, number] {
-  switch (blockType) {
-    case BlockType.GRASS: return [0.4, 0.75, 0.35];  // Bright green
-    case BlockType.DIRT: return [0.6, 0.4, 0.25];    // Brown
-    case BlockType.STONE: return [0.55, 0.55, 0.55]; // Gray
-    case BlockType.WOOD: return [0.55, 0.35, 0.2];   // Dark brown
-    case BlockType.LEAVES: return [0.3, 0.6, 0.25];  // Dark green
-    case BlockType.SAND: return [0.9, 0.85, 0.6];    // Light tan
-    case BlockType.WATER: return [0.3, 0.5, 0.9];    // Blue
-    case BlockType.COBBLESTONE: return [0.5, 0.5, 0.5]; // Gray
-    case BlockType.PLANKS: return [0.7, 0.55, 0.35]; // Light brown
-    default: return [1, 0, 1]; // Magenta for unknown
-  }
-}
-
-/**
- * Get color for a block face with shading based on face direction
- * Top faces are brighter, side faces medium, bottom faces darker
- */
-function getBlockColor(blockType: BlockType, faceIndex: number): [number, number, number] {
-  const base = getBlockBaseColor(blockType);
-  
-  // Special handling for grass - top is green, sides/bottom are dirt-colored
-  if (blockType === BlockType.GRASS) {
-    if (faceIndex === 0) {
-      // Top face - bright green
-      return [0.45, 0.8, 0.35];
-    } else if (faceIndex === 1) {
-      // Bottom face - dirt
-      return [0.5, 0.35, 0.2];
-    } else {
-      // Side faces - greenish brown gradient
-      return [0.45, 0.55, 0.3];
-    }
-  }
-  
-  // Apply face-based shading for depth
-  let brightness: number;
+function getFaceShading(faceIndex: number): number {
   switch (faceIndex) {
-    case 0: brightness = 1.0; break;   // Top - full brightness
-    case 1: brightness = 0.5; break;   // Bottom - dark
+    case 0: return 1.0;   // Top - full brightness
+    case 1: return 0.5;   // Bottom - dark
     case 2: // Front (+Z)
-    case 3: brightness = 0.8; break;   // Back (-Z) - medium
+    case 3: return 0.85;  // Back (-Z) - medium
     case 4: // Left (-X)  
-    case 5: brightness = 0.7; break;   // Right (+X) - slightly darker
-    default: brightness = 0.8;
+    case 5: return 0.7;   // Right (+X) - slightly darker
+    default: return 0.8;
   }
-  
-  return [
-    base[0] * brightness,
-    base[1] * brightness,
-    base[2] * brightness,
-  ];
 }
 
 /**
@@ -176,16 +115,16 @@ export function buildChunkMesh(chunk: ChunkData): ChunkMeshData {
           
           // Get texture UVs
           const textureIdx = getTextureIndex(block, faceIdx);
-          const [u0, v0, u1, v1] = getUVs(textureIdx);
+          const [u0, v0, u1, v1] = getTextureUVs(textureIdx);
           
-          // Get color for this specific face (with shading)
-          const faceColor = getBlockColor(block, faceIdx);
+          // Get shading for this face (simulates ambient occlusion)
+          const faceShade = getFaceShading(faceIdx);
           
           // Add the 4 corners of the face
           for (const corner of face.corners) {
             positions.push(x + corner[0], y + corner[1], z + corner[2]);
             normals.push(dx, dy, dz);
-            colors.push(faceColor[0], faceColor[1], faceColor[2]);
+            colors.push(faceShade, faceShade, faceShade);
           }
           
           // UV coordinates for the 4 corners

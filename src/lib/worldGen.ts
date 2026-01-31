@@ -15,6 +15,411 @@ const SEA_LEVEL = 32;
 const TERRAIN_HEIGHT = 20;
 const BASE_HEIGHT = 24;
 
+// Gothic Mansion location (near spawn)
+const MANSION_ORIGIN = { x: 25, z: 20 };
+const MANSION_WIDTH = 40;  // Total width including towers
+const MANSION_DEPTH = 24;  // Total depth
+
+/**
+ * Seeded random number generator for consistent structure generation
+ */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    return state / 0x7fffffff;
+  };
+}
+
+/**
+ * Get the terrain height at a world position using the same noise as chunk generation
+ */
+function getTerrainHeightAt(worldX: number, worldZ: number): number {
+  const noiseValue = fbm(worldX, worldZ, 4, 0.5, 0.02);
+  return Math.floor(BASE_HEIGHT + noiseValue * TERRAIN_HEIGHT);
+}
+
+// Block placement helper type
+type PlaceBlockFn = (wx: number, wy: number, wz: number, block: BlockType) => void;
+
+/**
+ * Generate a gothic tower with spire
+ */
+function generateTower(
+  placeBlock: PlaceBlockFn,
+  baseX: number,
+  baseY: number, 
+  baseZ: number,
+  towerSize: number,
+  towerHeight: number,
+  spireHeight: number,
+  random: () => number
+): void {
+  // Tower walls
+  for (let y = 0; y < towerHeight; y++) {
+    for (let x = 0; x < towerSize; x++) {
+      for (let z = 0; z < towerSize; z++) {
+        const isEdge = x === 0 || x === towerSize - 1 || z === 0 || z === towerSize - 1;
+        const isCorner = (x === 0 || x === towerSize - 1) && (z === 0 || z === towerSize - 1);
+        
+        if (isEdge) {
+          // Windows on each floor (every 4-5 blocks high)
+          const floorLevel = y % 5;
+          const isWindowLevel = floorLevel >= 2 && floorLevel <= 3;
+          const isWindowPos = !isCorner && (x === Math.floor(towerSize / 2) || z === Math.floor(towerSize / 2));
+          
+          if (isWindowLevel && isWindowPos) {
+            // Leave window opening
+          } else {
+            // Stone walls with occasional gaps
+            if (random() > 0.02) {
+              placeBlock(baseX + x, baseY + y, baseZ + z, BlockType.COBBLESTONE);
+            }
+          }
+          
+          // Corner pillars
+          if (isCorner) {
+            placeBlock(baseX + x, baseY + y, baseZ + z, BlockType.STONE);
+          }
+        }
+        
+        // Floor every 5 blocks
+        if (y > 0 && y % 5 === 0 && !isEdge) {
+          placeBlock(baseX + x, baseY + y, baseZ + z, BlockType.PLANKS);
+        }
+      }
+    }
+  }
+  
+  // Battlements at top of tower
+  for (let x = 0; x < towerSize; x++) {
+    for (let z = 0; z < towerSize; z++) {
+      const isEdge = x === 0 || x === towerSize - 1 || z === 0 || z === towerSize - 1;
+      if (isEdge) {
+        // Alternating crenellations
+        if ((x + z) % 2 === 0) {
+          placeBlock(baseX + x, baseY + towerHeight, baseZ + z, BlockType.COBBLESTONE);
+          placeBlock(baseX + x, baseY + towerHeight + 1, baseZ + z, BlockType.COBBLESTONE);
+        }
+      }
+    }
+  }
+  
+  // Pointed spire
+  const spireBase = baseY + towerHeight + 2;
+  for (let level = 0; level < spireHeight; level++) {
+    const shrink = Math.floor(level / 2);
+    const spireSize = towerSize - shrink * 2;
+    if (spireSize < 1) break;
+    
+    const offset = shrink;
+    for (let x = 0; x < spireSize; x++) {
+      for (let z = 0; z < spireSize; z++) {
+        const isEdge = x === 0 || x === spireSize - 1 || z === 0 || z === spireSize - 1;
+        if (isEdge || level === spireHeight - 1) {
+          placeBlock(baseX + offset + x, spireBase + level, baseZ + offset + z, BlockType.STONE);
+        }
+      }
+    }
+  }
+  
+  // Spire tip
+  const tipX = baseX + Math.floor(towerSize / 2);
+  const tipZ = baseZ + Math.floor(towerSize / 2);
+  for (let i = 0; i < 4; i++) {
+    placeBlock(tipX, spireBase + spireHeight + i, tipZ, BlockType.STONE);
+  }
+}
+
+/**
+ * Generate a peaked gable roof section
+ */
+function generateGableRoof(
+  placeBlock: PlaceBlockFn,
+  baseX: number,
+  baseY: number,
+  baseZ: number,
+  width: number,
+  depth: number,
+  roofHeight: number,
+  random: () => number
+): void {
+  for (let level = 0; level <= roofHeight; level++) {
+    const inset = level;
+    if (inset >= Math.floor(width / 2)) break;
+    
+    for (let z = -1; z <= depth + 1; z++) {
+      // Left slope
+      if (random() > 0.05) {
+        placeBlock(baseX + inset, baseY + level, baseZ + z, BlockType.COBBLESTONE);
+      }
+      // Right slope
+      if (random() > 0.05) {
+        placeBlock(baseX + width - 1 - inset, baseY + level, baseZ + z, BlockType.COBBLESTONE);
+      }
+    }
+    
+    // Front and back gable walls
+    if (level < roofHeight) {
+      for (let x = inset + 1; x < width - 1 - inset; x++) {
+        // Front gable
+        const isGableWindow = level >= 2 && level <= 4 && x >= Math.floor(width / 2) - 1 && x <= Math.floor(width / 2) + 1;
+        if (!isGableWindow && random() > 0.03) {
+          placeBlock(baseX + x, baseY + level, baseZ - 1, BlockType.COBBLESTONE);
+        }
+        // Back gable
+        if (random() > 0.03) {
+          placeBlock(baseX + x, baseY + level, baseZ + depth, BlockType.COBBLESTONE);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Generate a dead/spooky tree
+ */
+function generateDeadTree(
+  placeBlock: PlaceBlockFn,
+  baseX: number,
+  baseY: number,
+  baseZ: number,
+  random: () => number
+): void {
+  const height = 6 + Math.floor(random() * 4);
+  
+  // Main trunk
+  for (let y = 0; y < height; y++) {
+    placeBlock(baseX, baseY + y, baseZ, BlockType.WOOD);
+    // Make trunk thicker at base
+    if (y < 2) {
+      placeBlock(baseX + 1, baseY + y, baseZ, BlockType.WOOD);
+      placeBlock(baseX, baseY + y, baseZ + 1, BlockType.WOOD);
+    }
+  }
+  
+  // Gnarled branches
+  const branchY = baseY + height - 2;
+  
+  // Branch 1 - diagonal up-right
+  for (let i = 1; i <= 3; i++) {
+    placeBlock(baseX + i, branchY + i, baseZ, BlockType.WOOD);
+  }
+  
+  // Branch 2 - diagonal up-left
+  for (let i = 1; i <= 2; i++) {
+    placeBlock(baseX - i, branchY + i + 1, baseZ, BlockType.WOOD);
+  }
+  
+  // Branch 3 - forward
+  for (let i = 1; i <= 2; i++) {
+    placeBlock(baseX, branchY + 1, baseZ + i, BlockType.WOOD);
+  }
+  
+  // Branch 4 - backward and up
+  placeBlock(baseX, branchY, baseZ - 1, BlockType.WOOD);
+  placeBlock(baseX, branchY + 1, baseZ - 2, BlockType.WOOD);
+}
+
+/**
+ * Generate the Gothic Victorian Mansion
+ */
+function generateHauntedMansionInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  const mansionX = MANSION_ORIGIN.x;
+  const mansionZ = MANSION_ORIGIN.z;
+  const baseY = getTerrainHeightAt(mansionX + MANSION_WIDTH / 2, mansionZ + MANSION_DEPTH / 2);
+  
+  const random = seededRandom(66613); // Spooky seed
+  
+  // Helper to place a block if it's in this chunk
+  const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
+    const localX = wx - chunkWorldX;
+    const localZ = wz - chunkWorldZ;
+    
+    if (localX >= 0 && localX < CHUNK_SIZE && 
+        localZ >= 0 && localZ < CHUNK_SIZE &&
+        wy >= 0 && wy < CHUNK_HEIGHT) {
+      setBlockInChunk(chunk, localX, wy, localZ, block);
+    }
+  };
+  
+  // ===== FOUNDATION =====
+  for (let x = 0; x < MANSION_WIDTH; x++) {
+    for (let z = 0; z < MANSION_DEPTH; z++) {
+      placeBlock(mansionX + x, baseY - 1, mansionZ + z, BlockType.COBBLESTONE);
+      placeBlock(mansionX + x, baseY, mansionZ + z, BlockType.COBBLESTONE);
+    }
+  }
+  
+  // ===== MAIN BUILDING - 3 FLOORS =====
+  const mainStartX = 8;  // Offset from mansion origin
+  const mainWidth = 24;
+  const mainDepth = MANSION_DEPTH;
+  const floorHeight = 5;
+  const numFloors = 3;
+  
+  for (let floor = 0; floor < numFloors; floor++) {
+    const floorY = baseY + 1 + floor * floorHeight;
+    
+    for (let y = 0; y < floorHeight; y++) {
+      for (let x = 0; x < mainWidth; x++) {
+        // Front wall
+        const wx = mansionX + mainStartX + x;
+        const wz = mansionZ;
+        
+        // Gothic arched windows (every 6 blocks, 2 wide, 3 tall with pointed top)
+        const windowX = x % 6;
+        const isWindowColumn = windowX >= 2 && windowX <= 3;
+        const isWindowRow = y >= 1 && y <= 3;
+        const isArch = y === 3 && windowX === 2 || y === 3 && windowX === 3;
+        const isWindow = isWindowColumn && isWindowRow && !isArch;
+        
+        // Door on ground floor
+        const isDoor = floor === 0 && x >= 11 && x <= 12 && y <= 3;
+        
+        if (!isWindow && !isDoor) {
+          if (random() > 0.02) {
+            placeBlock(wx, floorY + y, wz, BlockType.COBBLESTONE);
+          }
+        }
+        
+        // Back wall
+        if (random() > 0.02) {
+          placeBlock(wx, floorY + y, mansionZ + mainDepth - 1, BlockType.COBBLESTONE);
+        }
+      }
+      
+      // Side walls of main building
+      for (let z = 1; z < mainDepth - 1; z++) {
+        // Left side wall
+        const isLeftWindow = y >= 1 && y <= 3 && z % 5 >= 2 && z % 5 <= 3;
+        if (!isLeftWindow && random() > 0.02) {
+          placeBlock(mansionX + mainStartX, floorY + y, mansionZ + z, BlockType.COBBLESTONE);
+        }
+        
+        // Right side wall
+        const isRightWindow = y >= 1 && y <= 3 && z % 5 >= 2 && z % 5 <= 3;
+        if (!isRightWindow && random() > 0.02) {
+          placeBlock(mansionX + mainStartX + mainWidth - 1, floorY + y, mansionZ + z, BlockType.COBBLESTONE);
+        }
+      }
+    }
+    
+    // Floor surfaces
+    if (floor > 0) {
+      for (let x = 1; x < mainWidth - 1; x++) {
+        for (let z = 1; z < mainDepth - 1; z++) {
+          placeBlock(mansionX + mainStartX + x, floorY, mansionZ + z, BlockType.PLANKS);
+        }
+      }
+    }
+  }
+  
+  // ===== MAIN ROOF (Center Gable) =====
+  const mainRoofY = baseY + 1 + numFloors * floorHeight;
+  generateGableRoof(placeBlock, mansionX + mainStartX, mainRoofY, mansionZ, mainWidth, mainDepth, 10, random);
+  
+  // ===== LEFT TOWER =====
+  generateTower(placeBlock, mansionX, baseY + 1, mansionZ, 8, 20, 10, random);
+  
+  // ===== RIGHT TOWER =====
+  generateTower(placeBlock, mansionX + MANSION_WIDTH - 8, baseY + 1, mansionZ, 8, 20, 10, random);
+  
+  // ===== REAR TOWERS (smaller) =====
+  generateTower(placeBlock, mansionX + 2, baseY + 1, mansionZ + MANSION_DEPTH - 6, 6, 15, 8, random);
+  generateTower(placeBlock, mansionX + MANSION_WIDTH - 8, baseY + 1, mansionZ + MANSION_DEPTH - 6, 6, 15, 8, random);
+  
+  // ===== CENTER TOWER (tallest) =====
+  const centerTowerX = mansionX + mainStartX + Math.floor(mainWidth / 2) - 4;
+  const centerTowerZ = mansionZ + Math.floor(mainDepth / 2) - 4;
+  generateTower(placeBlock, centerTowerX, baseY + 1 + numFloors * floorHeight, centerTowerZ, 8, 12, 12, random);
+  
+  // ===== FRONT STEPS =====
+  for (let step = 0; step < 4; step++) {
+    const stepWidth = 8 - step;
+    const stepX = mansionX + mainStartX + Math.floor(mainWidth / 2) - Math.floor(stepWidth / 2);
+    for (let x = 0; x < stepWidth; x++) {
+      placeBlock(stepX + x, baseY + step, mansionZ - step - 1, BlockType.COBBLESTONE);
+    }
+  }
+  
+  // ===== DECORATIVE ELEMENTS =====
+  
+  // Window trim (stone blocks above windows)
+  for (let floor = 0; floor < numFloors; floor++) {
+    const floorY = baseY + 1 + floor * floorHeight;
+    for (let x = 0; x < mainWidth; x += 6) {
+      // Stone lintel above each window pair
+      placeBlock(mansionX + mainStartX + x + 2, floorY + 4, mansionZ, BlockType.STONE);
+      placeBlock(mansionX + mainStartX + x + 3, floorY + 4, mansionZ, BlockType.STONE);
+    }
+  }
+  
+  // Balconies on second and third floor
+  for (let floor = 1; floor < numFloors; floor++) {
+    const balconyY = baseY + 1 + floor * floorHeight;
+    // Center balcony
+    const balconyX = mansionX + mainStartX + Math.floor(mainWidth / 2) - 2;
+    for (let x = 0; x < 4; x++) {
+      placeBlock(balconyX + x, balconyY, mansionZ - 1, BlockType.COBBLESTONE);
+      // Railing
+      if (x === 0 || x === 3) {
+        placeBlock(balconyX + x, balconyY + 1, mansionZ - 1, BlockType.COBBLESTONE);
+      }
+    }
+  }
+  
+  // ===== DEAD TREES =====
+  generateDeadTree(placeBlock, mansionX - 5, baseY, mansionZ + 5, random);
+  generateDeadTree(placeBlock, mansionX + MANSION_WIDTH + 3, baseY, mansionZ + 8, random);
+  generateDeadTree(placeBlock, mansionX + MANSION_WIDTH + 5, baseY, mansionZ + 3, random);
+  generateDeadTree(placeBlock, mansionX - 3, baseY, mansionZ + MANSION_DEPTH - 5, random);
+  
+  // ===== COBWEB LEAVES IN CORNERS =====
+  // Scatter some leaves around for cobweb effect
+  for (let floor = 0; floor < numFloors; floor++) {
+    const y = baseY + floor * floorHeight + floorHeight;
+    placeBlock(mansionX + mainStartX + 1, y, mansionZ + 1, BlockType.LEAVES);
+    placeBlock(mansionX + mainStartX + mainWidth - 2, y, mansionZ + 1, BlockType.LEAVES);
+    placeBlock(mansionX + mainStartX + 1, y, mansionZ + mainDepth - 2, BlockType.LEAVES);
+    placeBlock(mansionX + mainStartX + mainWidth - 2, y, mansionZ + mainDepth - 2, BlockType.LEAVES);
+  }
+  
+  // ===== GRAVEYARD AREA (front left) =====
+  // A few tombstones
+  for (let i = 0; i < 5; i++) {
+    const tombX = mansionX - 8 + Math.floor(random() * 6);
+    const tombZ = mansionZ + 2 + i * 3;
+    placeBlock(tombX, baseY, tombZ, BlockType.COBBLESTONE);
+    placeBlock(tombX, baseY + 1, tombZ, BlockType.COBBLESTONE);
+    if (random() > 0.5) {
+      placeBlock(tombX, baseY + 2, tombZ, BlockType.COBBLESTONE);
+    }
+  }
+}
+
+/**
+ * Check if a chunk could contain part of the haunted mansion
+ */
+function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
+  const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 10;
+  const mansionMinZ = MANSION_ORIGIN.z - 5;   // Include front steps
+  const mansionMaxZ = MANSION_ORIGIN.z + MANSION_DEPTH + 5;
+  
+  const chunkMinX = chunkWorldX;
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMinZ = chunkWorldZ;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+  
+  return !(chunkMaxX < mansionMinX || chunkMinX > mansionMaxX ||
+           chunkMaxZ < mansionMinZ || chunkMinZ > mansionMaxZ);
+}
+
 /**
  * Generate terrain for a single chunk
  */
@@ -57,6 +462,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
         setBlockInChunk(chunk, x, y, z, blockType);
       }
     }
+  }
+
+  // Add haunted mansion if this chunk overlaps with it
+  if (chunkContainsMansion(worldX, worldZ)) {
+    generateHauntedMansionInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;
