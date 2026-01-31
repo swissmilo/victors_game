@@ -13,7 +13,7 @@ interface WorldProps {
   renderDistance?: number;
 }
 
-export function World({ renderDistance = 2 }: WorldProps) {
+export function World({ renderDistance = 3 }: WorldProps) {
   const playerPosition = useGameStore((state) => state.playerPosition);
   const chunks = useGameStore((state) => state.chunks);
   const setChunk = useGameStore((state) => state.setChunk);

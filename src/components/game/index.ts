@@ -4,3 +4,4 @@ export { Player } from './Player';
 export { Ground } from './Ground';
 export { ChunkMesh } from './ChunkMesh';
 export { World } from './World';
+export { BlockSelector } from './BlockSelector';

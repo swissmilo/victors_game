@@ -1,9 +1,9 @@
 'use client';
 
-import { Sky } from '@react-three/drei';
-import { Physics } from '@react-three/rapier';
+import { Sky, Stats } from '@react-three/drei';
 import { Player } from './Player';
 import { World } from './World';
+import { BlockSelector } from './BlockSelector';
 
 interface SceneProps {
   isLocked: boolean;
@@ -13,18 +13,14 @@ interface SceneProps {
 export function Scene({ isLocked, consumeMovement }: SceneProps) {
   return (
     <>
+      {/* Performance stats */}
+      <Stats />
+      
       {/* Lighting */}
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={0.6} />
       <directionalLight
         position={[50, 100, 50]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={200}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
+        intensity={1.0}
       />
       
       {/* Sky */}
@@ -36,13 +32,16 @@ export function Scene({ isLocked, consumeMovement }: SceneProps) {
       />
       
       {/* Fog for distance */}
-      <fog attach="fog" args={['#87CEEB', 30, 150]} />
+      <fog attach="fog" args={['#87CEEB', 50, 200]} />
       
-      {/* Physics world */}
-      <Physics gravity={[0, -20, 0]} debug={false}>
-        <Player isLocked={isLocked} consumeMovement={consumeMovement} />
-        <World renderDistance={3} />
-      </Physics>
+      {/* Player controller */}
+      <Player isLocked={isLocked} consumeMovement={consumeMovement} />
+      
+      {/* Block selection/interaction */}
+      <BlockSelector enabled={isLocked} />
+      
+      {/* Voxel world */}
+      <World renderDistance={2} />
     </>
   );
 }

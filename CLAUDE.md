@@ -76,12 +76,21 @@ The mesh builder (`src/lib/meshBuilder.ts`) uses **face culling**:
 - Each visible face = 4 vertices, 6 indices (2 triangles)
 - Outputs: positions, normals, UVs, colors, indices
 
-### Physics
+### Physics (Currently Disabled for Performance)
 
-- Player uses `RigidBody` with `CapsuleCollider`
-- Blocks use `CuboidCollider` (only for exposed blocks)
-- Gravity: `[0, -20, 0]`
-- Ground detection uses velocity checking, not raycasting
+- Player uses simple position-based movement (no Rapier physics yet)
+- Ground is a flat plane at y=35 (temporary)
+- Block collision not implemented yet - will need optimized approach
+- Per-block colliders were too slow (thousands of components)
+
+### Block Interaction
+
+- Uses DDA (Digital Differential Analyzer) raycast algorithm
+- Raycast runs every frame to find targeted block
+- Left-click: Break block (add to inventory)
+- Right-click: Place block from hotbar (remove from inventory)
+- White wireframe shows targeted block
+- Green wireframe shows placement position
 
 ### State Management
 
@@ -140,10 +149,11 @@ const { setPlayerPosition, addToInventory } = useGameStore.getState();
 ### Completed
 - [x] Phase 1: Project setup, 3D scene, first-person controls
 - [x] Phase 2: Chunk-based voxel world, block textures, terrain generation
+- [x] Phase 3: Raycasting for block selection, mining (left-click), placing (right-click)
 
 ### Next Up
-- [ ] Phase 3: Raycasting for block selection, mining, placing
-- [ ] Phase 4: Multi-chunk optimization, persistence, polish
+- [ ] Phase 4: Physics integration (player-block collision)
+- [ ] Phase 5: Multi-chunk optimization, persistence, polish
 
 ## File Quick Reference
 
@@ -156,4 +166,6 @@ const { setPlayerPosition, addToInventory } = useGameStore.getState();
 | `src/lib/noise.ts` | Perlin noise implementation |
 | `src/stores/gameStore.ts` | Global game state |
 | `src/components/game/World.tsx` | Manages chunk loading/rendering |
-| `src/components/game/Player.tsx` | First-person controller with physics |
+| `src/components/game/Player.tsx` | First-person controller (no physics yet) |
+| `src/components/game/BlockSelector.tsx` | Raycasting and block interaction |
+| `src/lib/blockInteraction.ts` | DDA raycast algorithm and block manipulation |
