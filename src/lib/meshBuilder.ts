@@ -191,10 +191,10 @@ export function buildChunkMesh(chunk: ChunkData): ChunkMeshData {
           // UV coordinates for the 4 corners
           uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
           
-          // Two triangles per face (indices)
+          // Two triangles per face (indices) - counter-clockwise winding for front face
           indices.push(
-            vertexIndex, vertexIndex + 1, vertexIndex + 2,
-            vertexIndex, vertexIndex + 2, vertexIndex + 3
+            vertexIndex, vertexIndex + 2, vertexIndex + 1,
+            vertexIndex, vertexIndex + 3, vertexIndex + 2
           );
           
           vertexIndex += 4;
