@@ -86,38 +86,42 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   const slots = inventory.slice(0, 9);
 
-  // Bottom offset: account for safe area (e.g. iPhone home indicator) on mobile
-  const bottomClass = isMobile ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]' : 'bottom-4';
+  // Same pattern as MobileControls: outer wrapper (pointer-events-auto z-20), inner absolute positioned
+  // Use bottom-24 left-8/right-8 spacing to align with joystick/jump row
+  const innerPositionClass = isMobile ? 'absolute bottom-24 left-1/2 -translate-x-1/2' : 'absolute bottom-4 left-1/2 -translate-x-1/2';
 
   // Phone: single block, tap to cycle through 9 slots
   if (isPhoneLayout) {
     const slot = slots[hotbarSelection];
     return (
-      <div className={`absolute ${bottomClass} left-1/2 -translate-x-1/2 pointer-events-auto z-20`}>
-        <button
-          type="button"
-          onClick={cycleSelection}
-          className={`
-            w-14 h-14 flex items-center justify-center relative
-            border-2 rounded-lg border-white
-            bg-gray-800/90 touch-manipulation
-          `}
-          aria-label={`Selected slot ${hotbarSelection + 1} of 9. Tap to change.`}
-        >
-          <SlotContent
-            slot={slot}
-            index={hotbarSelection}
-            showSlotNumber={false}
-          />
-        </button>
-        <p className="text-center text-white/70 text-xs mt-1">Tap to change</p>
+      <div className="pointer-events-auto z-20">
+        <div className={innerPositionClass}>
+          <button
+            type="button"
+            onClick={cycleSelection}
+            className="
+              w-14 h-14 flex items-center justify-center relative
+              border-2 rounded-lg border-white
+              bg-gray-800/90 touch-manipulation
+            "
+            aria-label={`Selected slot ${hotbarSelection + 1} of 9. Tap to change.`}
+          >
+            <SlotContent
+              slot={slot}
+              index={hotbarSelection}
+              showSlotNumber={false}
+            />
+          </button>
+          <p className="text-center text-white/70 text-xs mt-1">Tap to change</p>
+        </div>
       </div>
     );
   }
 
   // Tablet (mobile): full hotbar with touch to select. Desktop: full hotbar (keys only).
   return (
-    <div className={`absolute ${bottomClass} left-1/2 -translate-x-1/2 flex gap-1 pointer-events-auto z-20`}>
+    <div className="pointer-events-auto z-20">
+      <div className={`${innerPositionClass} flex gap-1`}>
       {slots.map((slot, index) => {
         const isSelected = index === hotbarSelection;
         const slotClass = `
@@ -146,6 +150,7 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
