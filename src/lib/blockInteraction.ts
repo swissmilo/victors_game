@@ -8,6 +8,7 @@ import {
   ChunkData, 
   ChunkPosition,
   CHUNK_HEIGHT,
+  BLOCK_DEFINITIONS,
   getBlockFromChunk, 
   setBlockInChunk,
   worldToChunkPosition,
@@ -76,22 +77,26 @@ export function raycastBlocks(
     // Check current voxel
     const block = getBlockAtWorld(x, y, z, chunks);
     
+    // Only register hit on solid blocks (skip air, water, and other non-solid blocks)
     if (block !== null && block !== BlockType.AIR) {
-      const chunkPos = worldToChunkPosition(x, z);
-      const localPos = worldToLocalPosition(x, y, z);
-      
-      return {
-        blockPosition: new THREE.Vector3(x, y, z),
-        placePosition: new THREE.Vector3(
-          x + lastNormal.x,
-          y + lastNormal.y,
-          z + lastNormal.z
-        ),
-        faceNormal: lastNormal.clone(),
-        blockType: block,
-        chunkPosition: chunkPos,
-        localPosition: localPos,
-      };
+      const blockDef = BLOCK_DEFINITIONS[block];
+      if (blockDef && blockDef.solid) {
+        const chunkPos = worldToChunkPosition(x, z);
+        const localPos = worldToLocalPosition(x, y, z);
+        
+        return {
+          blockPosition: new THREE.Vector3(x, y, z),
+          placePosition: new THREE.Vector3(
+            x + lastNormal.x,
+            y + lastNormal.y,
+            z + lastNormal.z
+          ),
+          faceNormal: lastNormal.clone(),
+          blockType: block,
+          chunkPosition: chunkPos,
+          localPosition: localPos,
+        };
+      }
     }
     
     // Move to next voxel
