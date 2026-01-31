@@ -6,9 +6,10 @@ import * as THREE from 'three';
 
 // Texture size (Minecraft textures are 16x16)
 const TEXTURE_SIZE = 16;
-const ATLAS_COLS = 4;
-const ATLAS_ROWS = 4;
-const ATLAS_SIZE = TEXTURE_SIZE * ATLAS_COLS; // 64x64
+const ATLAS_COLS = 4;  // Keep at 4 columns
+const ATLAS_ROWS = 5;  // 4x5 = 20 slots
+const ATLAS_WIDTH = TEXTURE_SIZE * ATLAS_COLS;   // 64
+const ATLAS_HEIGHT = TEXTURE_SIZE * ATLAS_ROWS;  // 80
 
 // Texture paths and their indices in the atlas
 // Index = col + row * ATLAS_COLS
@@ -27,6 +28,7 @@ export const TEXTURE_INDICES = {
   METAL: 11,
   OBSIDIAN: 12,
   PORTAL: 13,
+  TELEPORTER: 14,
 } as const;
 
 const TEXTURE_PATHS: Record<number, string> = {
@@ -41,6 +43,10 @@ const TEXTURE_PATHS: Record<number, string> = {
   [TEXTURE_INDICES.WATER]: '/textures/water_still.png',
   [TEXTURE_INDICES.COBBLESTONE]: '/textures/cobblestone.png',
   [TEXTURE_INDICES.PLANKS]: '/textures/oak_planks.png',
+  [TEXTURE_INDICES.METAL]: '/textures/metal.png',
+  [TEXTURE_INDICES.OBSIDIAN]: '/textures/obsidian.png',
+  [TEXTURE_INDICES.PORTAL]: '/textures/portal.png',
+  [TEXTURE_INDICES.TELEPORTER]: '/textures/teleporter.png',
 };
 
 /**
@@ -124,15 +130,15 @@ function tintImage(
  */
 async function createTextureAtlasAsync(): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
-  canvas.width = ATLAS_SIZE;
-  canvas.height = ATLAS_SIZE;
+  canvas.width = ATLAS_WIDTH;
+  canvas.height = ATLAS_HEIGHT;
   
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
   
   // Fill with magenta for debugging (missing textures will be visible)
   ctx.fillStyle = '#ff00ff';
-  ctx.fillRect(0, 0, ATLAS_SIZE, ATLAS_SIZE);
+  ctx.fillRect(0, 0, ATLAS_WIDTH, ATLAS_HEIGHT);
   
   // Load and draw each texture
   const loadPromises = Object.entries(TEXTURE_PATHS).map(async ([indexStr, path]) => {
@@ -286,8 +292,8 @@ function drawPortalTexture(ctx: CanvasRenderingContext2D, textureIndex: number):
  */
 function createFallbackAtlas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.width = ATLAS_SIZE;
-  canvas.height = ATLAS_SIZE;
+  canvas.width = ATLAS_WIDTH;
+  canvas.height = ATLAS_HEIGHT;
   
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
@@ -308,11 +314,12 @@ function createFallbackAtlas(): HTMLCanvasElement {
     [TEXTURE_INDICES.METAL]: '#2e8b57',  // Sea green for metal tank
     [TEXTURE_INDICES.OBSIDIAN]: '#1a0a2e',  // Dark purple/black
     [TEXTURE_INDICES.PORTAL]: '#8b00ff',  // Purple portal
+    [TEXTURE_INDICES.TELEPORTER]: '#00e5e5',  // Cyan teleporter
   };
   
   // Fill with magenta for empty slots
   ctx.fillStyle = '#ff00ff';
-  ctx.fillRect(0, 0, ATLAS_SIZE, ATLAS_SIZE);
+  ctx.fillRect(0, 0, ATLAS_WIDTH, ATLAS_HEIGHT);
   
   // Draw fallback colors
   Object.entries(fallbackColors).forEach(([indexStr, color]) => {

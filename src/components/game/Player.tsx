@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useKeyboard } from '@/hooks';
-import { useGameStore } from '@/stores';
+import { useGameStore, TeleporterPosition } from '@/stores';
 import { BLOCK_DEFINITIONS, BlockType, CHUNK_SIZE, getBlockFromChunk, chunkPositionToKey } from '@/types';
 import { PORTAL_LOCATIONS, PortalLocation } from '@/lib/worldGen';
 
@@ -20,6 +20,7 @@ const GRAVITY = 30;
 const JUMP_VELOCITY = 12;       // Jump velocity
 const DOUBLE_TAP_THRESHOLD = 300; // ms
 const PORTAL_COOLDOWN = 2000;     // ms - time before player can teleport again
+const TELEPORTER_COOLDOWN = 1000; // ms - time before player can use teleporter block again
 
 interface PlayerProps {
   isLocked: boolean;
@@ -35,6 +36,7 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
   const isFlying = useGameStore((state) => state.isFlying);
   const setIsFlying = useGameStore((state) => state.setIsFlying);
   const chunks = useGameStore((state) => state.chunks);
+  const teleporters = useGameStore((state) => state.teleporters);
   
   const positionRef = useRef(new THREE.Vector3(8, 50, 8));
   const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
@@ -44,6 +46,7 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
   const lastSpacePressRef = useRef(0);
   const spaceWasDownRef = useRef(false);
   const lastTeleportTimeRef = useRef(0);
+  const lastTeleporterUseRef = useRef(0);
   
   // Get block type at world position
   const getBlockAt = useCallback((worldX: number, worldY: number, worldZ: number): BlockType => {
@@ -109,6 +112,43 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
     pitchRef.current = 0;
     lastTeleportTimeRef.current = Date.now();
   }, []);
+  
+  // Check if player is standing on a teleporter block
+  const checkTeleporterBlock = useCallback((x: number, y: number, z: number): TeleporterPosition | null => {
+    // Check the block directly below the player's feet
+    const blockBelowY = Math.floor(y - 0.01);
+    const blockBelow = getBlockAt(x, blockBelowY, z);
+    
+    if (blockBelow === BlockType.TELEPORTER) {
+      return {
+        x: Math.floor(x),
+        y: blockBelowY,
+        z: Math.floor(z),
+      };
+    }
+    return null;
+  }, [getBlockAt]);
+  
+  // Teleport to a random teleporter block
+  const teleportToRandomTeleporter = useCallback((currentPos: TeleporterPosition) => {
+    if (teleporters.length < 2) return;
+    
+    // Filter out the current teleporter
+    const otherTeleporters = teleporters.filter(
+      t => !(t.x === currentPos.x && t.y === currentPos.y && t.z === currentPos.z)
+    );
+    
+    if (otherTeleporters.length === 0) return;
+    
+    // Pick a random one
+    const targetIndex = Math.floor(Math.random() * otherTeleporters.length);
+    const target = otherTeleporters[targetIndex];
+    
+    // Teleport to center of the block, on top of it
+    positionRef.current.set(target.x + 0.5, target.y + 1, target.z + 0.5);
+    velocityRef.current.set(0, 0, 0);
+    lastTeleporterUseRef.current = Date.now();
+  }, [teleporters]);
   
   // Handle hotbar selection and double-tap fly toggle
   useEffect(() => {
@@ -321,6 +361,16 @@ export function Player({ isLocked, consumeMovement }: PlayerProps) {
         if (targetPortal) {
           teleportToPortal(targetPortal);
         }
+      }
+    }
+    
+    // Check for teleporter block teleportation (when grounded on a teleporter)
+    if (isGroundedRef.current && 
+        teleporters.length >= 2 && 
+        now - lastTeleporterUseRef.current > TELEPORTER_COOLDOWN) {
+      const currentTeleporter = checkTeleporterBlock(finalX, finalY, finalZ);
+      if (currentTeleporter) {
+        teleportToRandomTeleporter(currentTeleporter);
       }
     }
 

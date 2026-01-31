@@ -18,6 +18,13 @@ interface TsunamiState {
   maxWaterLevel: number;    // Peak tsunami height
 }
 
+// Teleporter position
+export interface TeleporterPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
 interface GameState {
   // Player state
   playerPosition: [number, number, number];
@@ -30,6 +37,9 @@ interface GameState {
   // World state
   chunks: Map<string, Chunk>;
   renderDistance: number;
+  
+  // Teleporter positions (placed by player)
+  teleporters: TeleporterPosition[];
   
   // Game settings
   isPlaying: boolean;
@@ -53,6 +63,10 @@ interface GameState {
   setIsPaused: (isPaused: boolean) => void;
   setIsFlying: (isFlying: boolean) => void;
   
+  // Teleporter actions
+  addTeleporter: (position: TeleporterPosition) => void;
+  removeTeleporter: (position: TeleporterPosition) => void;
+  
   // Tsunami actions
   updateTsunami: (updates: Partial<TsunamiState>) => void;
   resetTsunami: () => void;
@@ -73,7 +87,7 @@ const INITIAL_INVENTORY: InventorySlot[] = [
   { blockType: BlockType.COBBLESTONE, count: 64 },
   { blockType: BlockType.SAND, count: 64 },
   { blockType: BlockType.LEAVES, count: 64 },
-  { blockType: BlockType.AIR, count: 0 },
+  { blockType: BlockType.TELEPORTER, count: 64 },
 ];
 
 // Tsunami configuration
@@ -97,6 +111,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hotbarSelection: 0,
   chunks: new Map(),
   renderDistance: 4,
+  teleporters: [],
   isPlaying: false,
   isPaused: false,
   isFlying: false,
@@ -208,6 +223,26 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   setIsFlying: (isFlying) => set({ isFlying }),
   
+  addTeleporter: (position) => {
+    const { teleporters } = get();
+    // Check if teleporter already exists at this position
+    const exists = teleporters.some(
+      t => t.x === position.x && t.y === position.y && t.z === position.z
+    );
+    if (!exists) {
+      set({ teleporters: [...teleporters, position] });
+    }
+  },
+  
+  removeTeleporter: (position) => {
+    const { teleporters } = get();
+    set({
+      teleporters: teleporters.filter(
+        t => !(t.x === position.x && t.y === position.y && t.z === position.z)
+      ),
+    });
+  },
+  
   updateTsunami: (updates) => set((state) => ({
     tsunami: { ...state.tsunami, ...updates },
   })),
@@ -239,6 +274,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: saveData.inventory,
       hotbarSelection: saveData.hotbarSelection,
       chunks,
+      teleporters: [],  // Reset teleporters - they'll need to be re-placed
       tsunami: INITIAL_TSUNAMI,
     });
     
@@ -256,6 +292,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: INITIAL_INVENTORY,
       hotbarSelection: 0,
       chunks: new Map(),
+      teleporters: [],
       isPlaying: false,
       isPaused: false,
       isFlying: false,

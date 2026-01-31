@@ -14,6 +14,7 @@ export enum BlockType {
   METAL = 10,
   OBSIDIAN = 11,
   PORTAL = 12,
+  TELEPORTER = 13,
 }
 
 export interface BlockDefinition {
@@ -117,5 +118,12 @@ export const BLOCK_DEFINITIONS: Record<BlockType, BlockDefinition> = {
     solid: false,
     transparent: true,
     textureIndex: 13,
+  },
+  [BlockType.TELEPORTER]: {
+    id: BlockType.TELEPORTER,
+    name: 'Teleporter',
+    solid: true,
+    transparent: false,
+    textureIndex: 14,  // Will use end portal frame texture
   },
 };

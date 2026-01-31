@@ -22,6 +22,8 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
   const hotbarSelection = useGameStore((state) => state.hotbarSelection);
   const addToInventory = useGameStore((state) => state.addToInventory);
   const removeFromInventory = useGameStore((state) => state.removeFromInventory);
+  const addTeleporter = useGameStore((state) => state.addTeleporter);
+  const removeTeleporter = useGameStore((state) => state.removeTeleporter);
 
   // Convert chunks Map to the format needed by raycast
   const getChunksForRaycast = useCallback(() => {
@@ -38,12 +40,20 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
     
     const chunksMap = getChunksForRaycast();
     const pos = targetBlock.blockPosition;
+    const blockX = Math.floor(pos.x);
+    const blockY = Math.floor(pos.y);
+    const blockZ = Math.floor(pos.z);
+    
+    // Check if we're breaking a teleporter
+    if (targetBlock.blockType === BlockType.TELEPORTER) {
+      removeTeleporter({ x: blockX, y: blockY, z: blockZ });
+    }
     
     // Set block to air
     const modifiedKey = setBlockAtWorld(
-      Math.floor(pos.x),
-      Math.floor(pos.y),
-      Math.floor(pos.z),
+      blockX,
+      blockY,
+      blockZ,
       BlockType.AIR,
       chunksMap
     );
@@ -64,7 +74,7 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
         });
       }
     }
-  }, [targetBlock, getChunksForRaycast, chunks, setChunk, addToInventory]);
+  }, [targetBlock, getChunksForRaycast, chunks, setChunk, addToInventory, removeTeleporter]);
 
   // Place block (right click)
   const placeBlock = useCallback(() => {
@@ -77,17 +87,25 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
     
     const chunksMap = getChunksForRaycast();
     const pos = targetBlock.placePosition;
+    const blockX = Math.floor(pos.x);
+    const blockY = Math.floor(pos.y);
+    const blockZ = Math.floor(pos.z);
     
     // Set block
     const modifiedKey = setBlockAtWorld(
-      Math.floor(pos.x),
-      Math.floor(pos.y),
-      Math.floor(pos.z),
+      blockX,
+      blockY,
+      blockZ,
       selectedSlot.blockType,
       chunksMap
     );
     
     if (modifiedKey) {
+      // If placing a teleporter, track its position
+      if (selectedSlot.blockType === BlockType.TELEPORTER) {
+        addTeleporter({ x: blockX, y: blockY, z: blockZ });
+      }
+      
       // Remove from inventory
       removeFromInventory(hotbarSelection, 1);
       
@@ -102,7 +120,7 @@ export function BlockSelector({ enabled }: BlockSelectorProps) {
         });
       }
     }
-  }, [targetBlock, inventory, hotbarSelection, getChunksForRaycast, chunks, setChunk, removeFromInventory]);
+  }, [targetBlock, inventory, hotbarSelection, getChunksForRaycast, chunks, setChunk, removeFromInventory, addTeleporter]);
 
   // Handle mouse clicks
   useEffect(() => {

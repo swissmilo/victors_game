@@ -17,6 +17,7 @@ const BLOCK_COLORS: Record<BlockType, string> = {
   [BlockType.METAL]: '#2e8b57',  // Green metal
   [BlockType.OBSIDIAN]: '#1a0a2e',  // Dark purple/black
   [BlockType.PORTAL]: '#8b00ff',  // Purple portal
+  [BlockType.TELEPORTER]: '#00e5e5',  // Cyan teleporter
 };
 
 export function Hotbar() {
