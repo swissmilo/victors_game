@@ -86,11 +86,14 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   const slots = inventory.slice(0, 9);
 
+  // Bottom offset: account for safe area (e.g. iPhone home indicator) on mobile
+  const bottomClass = isMobile ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]' : 'bottom-4';
+
   // Phone: single block, tap to cycle through 9 slots
   if (isPhoneLayout) {
     const slot = slots[hotbarSelection];
     return (
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+      <div className={`absolute ${bottomClass} left-1/2 -translate-x-1/2 pointer-events-auto z-20`}>
         <button
           type="button"
           onClick={cycleSelection}
@@ -114,7 +117,7 @@ export function Hotbar({ isMobile = false }: HotbarProps) {
 
   // Tablet (mobile): full hotbar with touch to select. Desktop: full hotbar (keys only).
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1">
+    <div className={`absolute ${bottomClass} left-1/2 -translate-x-1/2 flex gap-1 pointer-events-auto z-20`}>
       {slots.map((slot, index) => {
         const isSelected = index === hotbarSelection;
         const slotClass = `

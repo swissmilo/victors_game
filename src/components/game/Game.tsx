@@ -164,24 +164,20 @@ export function Game() {
         <WorldMenu onStartGame={handleStartGame} />
       )}
       
-      {/* UI Overlay - show when locked (desktop) or always on mobile */}
+      {/* UI Overlay - show when locked (desktop) or always on mobile; z-10 so it paints above canvas on iOS */}
       {gameStarted && (isLocked || isMobile) && !showMenu && (
-        <>
+        <div className="absolute inset-0 z-10 pointer-events-none">
           <UnderwaterOverlay />
           <Crosshair hidden={isMobile} />
           <Hotbar isMobile={isMobile} />
           <CatastropheTimer />
-          
-          {/* Mobile controls */}
           {isMobile && <MobileControls />}
-          
-          {/* Flying indicator */}
           {isFlying && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">
               Flying
             </div>
           )}
-        </>
+        </div>
       )}
       
       {/* Click to resume when pointer unlocked but game started (desktop only) */}

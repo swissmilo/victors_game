@@ -94,7 +94,7 @@ export function MobileControls() {
   }, []);
   
   return (
-    <>
+    <div className="pointer-events-auto z-20">
       {/* Virtual joystick for movement */}
       <div 
         ref={joystickRef}
@@ -104,9 +104,9 @@ export function MobileControls() {
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
       >
-        <div 
-          ref={knobRef}
-          className="w-14 h-14 rounded-full bg-white/50 border-2 border-white/70 transition-none"
+      <div 
+        ref={knobRef}
+        className="w-14 h-14 rounded-full bg-white/50 border-2 border-white/70 transition-none"
         />
       </div>
       
@@ -119,7 +119,7 @@ export function MobileControls() {
       >
         <span className="text-white/70 text-lg font-bold">JUMP</span>
       </div>
-    </>
+    </div>
   );
 }
 
