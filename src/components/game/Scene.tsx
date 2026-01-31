@@ -1,6 +1,6 @@
 'use client';
 
-import { Sky, Stats } from '@react-three/drei';
+import { Sky } from '@react-three/drei';
 import { Player } from './Player';
 import { World } from './World';
 import { BlockSelector } from './BlockSelector';
@@ -35,9 +35,6 @@ export function Scene({
   
   return (
     <>
-      {/* Performance stats */}
-      <Stats />
-      
       {/* Lighting - bright ambient for Minecraft-like flat shading */}
       <ambientLight intensity={1.0} />
       <directionalLight

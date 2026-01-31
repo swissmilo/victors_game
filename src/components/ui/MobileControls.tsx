@@ -4,9 +4,10 @@ import { useCallback, useRef, useEffect } from 'react';
 
 interface MobileControlsProps {
   holdProgress: number;  // 0-1, progress toward breaking a block
+  isValidHold: boolean;  // Whether the hold is valid for breaking (centered, minimal movement)
 }
 
-export function MobileControls({ holdProgress }: MobileControlsProps) {
+export function MobileControls({ holdProgress, isValidHold }: MobileControlsProps) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const touchIdRef = useRef<number | null>(null);
@@ -99,8 +100,8 @@ export function MobileControls({ holdProgress }: MobileControlsProps) {
   
   return (
     <>
-      {/* Hold progress indicator */}
-      {holdProgress > 0 && (
+      {/* Hold progress indicator - only show when valid hold for breaking */}
+      {isValidHold && holdProgress > 0 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <div className="w-16 h-16 rounded-full border-4 border-white/50 relative">
             <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -142,12 +143,6 @@ export function MobileControls({ holdProgress }: MobileControlsProps) {
         onTouchCancel={() => simulateKey('Space', false)}
       >
         <span className="text-white/70 text-lg font-bold">JUMP</span>
-      </div>
-      
-      {/* Instructions */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 text-center text-white/60 text-sm pointer-events-none">
-        <p>Drag to look around</p>
-        <p>Tap to place block | Hold to break</p>
       </div>
     </>
   );

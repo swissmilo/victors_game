@@ -165,7 +165,10 @@ export function Game() {
           
           {/* Mobile controls */}
           {isMobile && (
-            <MobileControls holdProgress={Math.min(holdDuration() / 500, 1)} />
+            <MobileControls 
+              holdProgress={Math.min(holdDuration() / 500, 1)} 
+              isValidHold={isValidHoldForBreak()}
+            />
           )}
           
           {/* Flying indicator */}
