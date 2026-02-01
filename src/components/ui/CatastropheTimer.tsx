@@ -9,6 +9,7 @@ export function CatastropheTimer() {
   const tsunami = useGameStore((state) => state.tsunami);
   const bloodRain = useGameStore((state) => state.bloodRain);
   const hurricane = useGameStore((state) => state.hurricane);
+  const meteorShower = useGameStore((state) => state.meteorShower);
   
   // Get current countdown and phase based on active catastrophe
   const getDisplayInfo = () => {
@@ -225,8 +226,7 @@ export function CatastropheTimer() {
             progressColor: 'bg-red-400',
           };
       }
-    } else {
-      // Hurricane
+    } else if (currentCatastrophe === 'hurricane') {
       const { phase, countdown, intensity } = hurricane;
       const intensityPercent = Math.round(intensity * 100);
 
@@ -274,6 +274,57 @@ export function CatastropheTimer() {
             progress: intensityPercent,
             progressLabel: `Intensity: ${intensityPercent}%`,
             progressColor: 'bg-cyan-400',
+          };
+      }
+    } else {
+      // Meteor Shower
+      const { phase, countdown, intensity, meteorsSpawned } = meteorShower;
+      const intensityPercent = Math.round(intensity * 100);
+
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: Meteor Shower',
+            countdown,
+            color: 'text-orange-400',
+            bgColor: 'bg-orange-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-orange-500',
+          };
+        case 'darkening':
+          return {
+            title: 'SKY DARKENING!',
+            countdown: 0,
+            color: 'text-orange-500',
+            bgColor: 'bg-orange-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'Darkness approaching...',
+            progressColor: 'bg-orange-600',
+          };
+        case 'active':
+          return {
+            title: 'METEOR SHOWER!',
+            countdown: 0,
+            color: 'text-orange-600',
+            bgColor: 'bg-slate-900/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: `Meteors: ${meteorsSpawned}`,
+            progressColor: 'bg-orange-700',
+          };
+        case 'clearing':
+          return {
+            title: 'Sky Clearing',
+            countdown: 0,
+            color: 'text-orange-300',
+            bgColor: 'bg-orange-900/40',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: `Intensity: ${intensityPercent}%`,
+            progressColor: 'bg-orange-400',
           };
       }
     }

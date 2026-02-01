@@ -7,3 +7,4 @@ export { World } from './World';
 export { BlockSelector } from './BlockSelector';
 export { TsunamiSystem } from './TsunamiSystem';
 export { HurricaneSystem } from './HurricaneSystem';
+export { MeteorShowerSystem } from './MeteorShowerSystem';

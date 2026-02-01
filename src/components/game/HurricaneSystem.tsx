@@ -3,7 +3,7 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore, HURRICANE_COUNTDOWN, EARTHQUAKE_COUNTDOWN } from '@/stores';
+import { useGameStore, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN } from '@/stores';
 import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk } from '@/types';
 
 // Hurricane timing configuration
@@ -116,7 +116,7 @@ export function HurricaneSystem() {
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
-  const updateEarthquake = useGameStore((state) => state.updateEarthquake);
+  const updateMeteorShower = useGameStore((state) => state.updateMeteorShower);
 
   const phaseTimer = useRef(0);
   const funnelRef = useRef<THREE.Mesh>(null);
@@ -267,7 +267,7 @@ export function HurricaneSystem() {
         });
 
         if (progress >= 1) {
-          // Reset and transition to next catastrophe (earthquake)
+          // Reset and transition to next catastrophe (meteor shower)
           updateHurricane({
             phase: 'countdown',
             countdown: HURRICANE_COUNTDOWN,
@@ -281,11 +281,11 @@ export function HurricaneSystem() {
           });
           phaseTimer.current = 0;
 
-          // Switch to earthquake
+          // Switch to meteor shower
           switchToNextCatastrophe();
-          updateEarthquake({
+          updateMeteorShower({
             phase: 'countdown',
-            countdown: EARTHQUAKE_COUNTDOWN,
+            countdown: METEOR_SHOWER_COUNTDOWN,
           });
         }
         break;
