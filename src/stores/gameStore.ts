@@ -108,6 +108,19 @@ export interface TeleporterPosition {
   z: number;
 }
 
+// Zombie state
+export interface ZombieData {
+  id: number;
+  position: [number, number, number];
+  rotation: number;
+  health: number;
+  targetDirection: [number, number, number];
+  wanderTimer: number;
+  isHit: boolean;
+  hitTimer: number;
+  isDead: boolean;
+}
+
 interface GameState {
   // Player state
   playerPosition: [number, number, number];
@@ -154,6 +167,9 @@ interface GameState {
 
   // Sandstorm state
   sandstorm: SandstormState;
+
+  // Zombie state
+  zombies: ZombieData[];
 
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
@@ -205,6 +221,11 @@ interface GameState {
   // Sandstorm actions
   updateSandstorm: (updates: Partial<SandstormState>) => void;
   resetSandstorm: () => void;
+
+  // Zombie actions
+  initializeZombies: (zombies: ZombieData[]) => void;
+  updateZombies: (zombies: ZombieData[]) => void;
+  hitZombie: (id: number) => void;
 
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
@@ -334,6 +355,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hurricane: INITIAL_HURRICANE,
   meteorShower: INITIAL_METEOR_SHOWER,
   sandstorm: INITIAL_SANDSTORM,
+  zombies: [],
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -534,6 +556,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     sandstorm: INITIAL_SANDSTORM,
   }),
 
+  initializeZombies: (zombies) => set({ zombies }),
+
+  updateZombies: (zombies) => set({ zombies }),
+
+  hitZombie: (id) => set((state) => ({
+    zombies: state.zombies.map((z) => {
+      if (z.id === id && !z.isDead && !z.isHit) {
+        const newHealth = z.health - 1;
+        return {
+          ...z,
+          health: newHealth,
+          isHit: true,
+          hitTimer: 0.2,
+          isDead: newHealth <= 0,
+        };
+      }
+      return z;
+    }),
+  })),
+
   saveGame: (worldId = 'default') => {
     const state = get();
     return saveWorld(
@@ -569,6 +611,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
+      zombies: [],
     });
 
     return true;
@@ -600,6 +643,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
+      zombies: [],
     });
   },
 }));

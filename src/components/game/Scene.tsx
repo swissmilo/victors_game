@@ -12,6 +12,7 @@ import { BloodRainSystem } from './BloodRainSystem';
 import { HurricaneSystem } from './HurricaneSystem';
 import { MeteorShowerSystem } from './MeteorShowerSystem';
 import { SandstormSystem } from './SandstormSystem';
+import { ZombieSystem } from './ZombieSystem';
 import { useGameStore } from '@/stores';
 
 interface SceneProps {
@@ -130,6 +131,9 @@ export function Scene({
       <HurricaneSystem />
       <MeteorShowerSystem />
       <SandstormSystem />
+
+      {/* Zombie system */}
+      <ZombieSystem />
     </>
   );
 }

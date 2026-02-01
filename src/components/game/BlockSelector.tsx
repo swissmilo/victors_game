@@ -7,6 +7,10 @@ import { useGameStore } from '@/stores';
 import { raycastBlocks, setBlockAtWorld, BlockHit } from '@/lib/blockInteraction';
 import { BlockType } from '@/types';
 
+// Raycaster for zombie hit detection
+const zombieRaycaster = new THREE.Raycaster();
+zombieRaycaster.far = 10; // Can hit zombies from up to 10 blocks away
+
 // Helper to convert screen coordinates to ray direction
 function screenToRayDirection(
   screenX: number,
@@ -53,7 +57,7 @@ export function BlockSelector({
   isValidHoldForBreak,
   getHoldPosition,
 }: BlockSelectorProps) {
-  const { camera, size } = useThree();
+  const { camera, size, scene } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
   const highlightRef = useRef<THREE.Mesh>(null);
   const hasTriggeredBreak = useRef(false);  // Track if we've broken a block during current hold
@@ -77,6 +81,8 @@ export function BlockSelector({
   const addTeleporter = useGameStore((state) => state.addTeleporter);
   const removeTeleporter = useGameStore((state) => state.removeTeleporter);
   const playerPosition = useGameStore((state) => state.playerPosition);
+  const hitZombie = useGameStore((state) => state.hitZombie);
+  const zombies = useGameStore((state) => state.zombies);
   
   // Helper to check if a position is far enough from player for continuous action
   const isFarEnoughFromPlayer = useCallback((pos: { x: number; y: number; z: number }) => {
@@ -95,6 +101,38 @@ export function BlockSelector({
     });
     return result;
   }, [chunks]);
+
+  // Check if ray hits a zombie and return the zombie id, or null
+  const checkZombieHit = useCallback((): number | null => {
+    // Find the zombies group in the scene
+    const zombiesGroup = scene.getObjectByName('zombies');
+    if (!zombiesGroup) return null;
+
+    // Set up raycaster from camera center
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(camera.quaternion);
+    zombieRaycaster.set(camera.position, direction);
+
+    // Get all intersections with zombie meshes
+    const intersects = zombieRaycaster.intersectObjects(zombiesGroup.children, true);
+
+    for (const intersect of intersects) {
+      // Check userData for zombie info
+      let obj: THREE.Object3D | null = intersect.object;
+      while (obj) {
+        if (obj.userData?.isZombie && typeof obj.userData?.zombieId === 'number') {
+          // Check if this zombie is alive
+          const zombie = zombies.find(z => z.id === obj!.userData.zombieId);
+          if (zombie && !zombie.isDead) {
+            return obj.userData.zombieId;
+          }
+        }
+        obj = obj.parent;
+      }
+    }
+
+    return null;
+  }, [scene, camera, zombies]);
 
   // Break block at specific hit position
   const breakBlockAt = useCallback((hit: BlockHit) => {
@@ -210,7 +248,15 @@ export function BlockSelector({
 
       const now = Date.now();
       if (event.button === 0) {
-        // Left click - break
+        // Left click - first check for zombie hit
+        const zombieId = checkZombieHit();
+        if (zombieId !== null) {
+          // Hit a zombie instead of breaking a block
+          hitZombie(zombieId);
+          return;
+        }
+
+        // No zombie hit, break block
         isLeftMouseDown.current = true;
         breakBlock();
         // Update last break position and time to prevent double-action
@@ -255,7 +301,7 @@ export function BlockSelector({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [enabled, breakBlock, placeBlock, targetBlock]);
+  }, [enabled, breakBlock, placeBlock, targetBlock, checkZombieHit, hitZombie]);
 
   // Raycast every frame to find targeted block
   useFrame(() => {
