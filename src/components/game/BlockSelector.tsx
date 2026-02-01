@@ -108,16 +108,21 @@ export function BlockSelector({
     const zombiesGroup = scene.getObjectByName('zombies');
     if (!zombiesGroup) return null;
 
+    // Update world matrices to ensure accurate raycasting
+    zombiesGroup.updateMatrixWorld(true);
+
     // Set up raycaster from camera center
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(camera.quaternion);
+    direction.normalize();
     zombieRaycaster.set(camera.position, direction);
 
-    // Get all intersections with zombie meshes
+    // Get all intersections with zombie meshes (recursive)
     const intersects = zombieRaycaster.intersectObjects(zombiesGroup.children, true);
 
+    // Find the closest zombie hit
     for (const intersect of intersects) {
-      // Check userData for zombie info
+      // Check userData for zombie info - walk up the object hierarchy
       let obj: THREE.Object3D | null = intersect.object;
       while (obj) {
         if (obj.userData?.isZombie && typeof obj.userData?.zombieId === 'number') {

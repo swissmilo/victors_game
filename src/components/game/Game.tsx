@@ -84,7 +84,11 @@ export function Game() {
   const handleStartGame = useCallback(() => {
     setShowMenu(false);
     setGameStarted(true);
-  }, []);
+    // On mobile, automatically start playing (no pointer lock needed)
+    if (isMobile) {
+      setIsPlaying(true);
+    }
+  }, [isMobile, setIsPlaying]);
 
   // Handle clicking to lock pointer when game is active (desktop)
   // On mobile, we don't need pointer lock

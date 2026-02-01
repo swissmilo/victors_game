@@ -123,6 +123,8 @@ function Zombie({
       top: pixelToUV(8, 0, 8, 8),
       bottom: pixelToUV(16, 0, 8, 8),
     });
+    headGeo.computeBoundingBox();
+    headGeo.computeBoundingSphere();
 
     const bodyGeo = new THREE.BoxGeometry(BODY_WIDTH, BODY_HEIGHT, BODY_DEPTH);
     createFaceUVs(bodyGeo, {
@@ -133,6 +135,8 @@ function Zombie({
       top: pixelToUV(20, 16, 8, 4),
       bottom: pixelToUV(28, 16, 8, 4),
     });
+    bodyGeo.computeBoundingBox();
+    bodyGeo.computeBoundingSphere();
 
     const armGeo = new THREE.BoxGeometry(ARM_WIDTH, ARM_HEIGHT, ARM_WIDTH);
     createFaceUVs(armGeo, {
@@ -143,6 +147,8 @@ function Zombie({
       top: pixelToUV(44, 16, 4, 4),
       bottom: pixelToUV(48, 16, 4, 4),
     });
+    armGeo.computeBoundingBox();
+    armGeo.computeBoundingSphere();
 
     const legGeo = new THREE.BoxGeometry(LEG_WIDTH, LEG_HEIGHT, LEG_WIDTH);
     createFaceUVs(legGeo, {
@@ -153,6 +159,8 @@ function Zombie({
       top: pixelToUV(4, 16, 4, 4),
       bottom: pixelToUV(8, 16, 4, 4),
     });
+    legGeo.computeBoundingBox();
+    legGeo.computeBoundingSphere();
 
     return { headGeo, bodyGeo, armGeo, legGeo };
   }, []);
@@ -311,9 +319,9 @@ export function ZombieSystem() {
       const newX = zombie.position[0] + targetDirection[0] * moveSpeed;
       const newZ = zombie.position[2] + targetDirection[2] * moveSpeed;
 
-      // Find ground level and adjust Y
+      // Find ground level and adjust Y (add 1 block to prevent feet sinking)
       const groundY = findGroundLevel(newX, newZ);
-      const newY = groundY + TOTAL_HEIGHT / 2;
+      const newY = groundY + TOTAL_HEIGHT / 2 + 1;
 
       // Update rotation to face movement direction
       const rotation = Math.atan2(targetDirection[0], targetDirection[2]);
