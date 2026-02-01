@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore, BLOOD_RAIN_COUNTDOWN, EARTHQUAKE_COUNTDOWN } from '@/stores';
+import { useGameStore, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN } from '@/stores';
 import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk } from '@/types';
 
 // Blood rain timing configuration
@@ -61,7 +61,7 @@ export function BloodRainSystem() {
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
-  const updateEarthquake = useGameStore((state) => state.updateEarthquake);
+  const updateHurricane = useGameStore((state) => state.updateHurricane);
   const playerPosition = useGameStore((state) => state.playerPosition);
   
   const { scene } = useThree();
@@ -160,11 +160,11 @@ export function BloodRainSystem() {
           });
           phaseTimer.current = 0;
           
-          // Switch to earthquake and start its countdown
+          // Switch to hurricane and start its countdown
           switchToNextCatastrophe();
-          updateEarthquake({
+          updateHurricane({
             phase: 'countdown',
-            countdown: EARTHQUAKE_COUNTDOWN,
+            countdown: HURRICANE_COUNTDOWN,
           });
         }
         break;

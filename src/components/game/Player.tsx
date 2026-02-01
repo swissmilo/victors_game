@@ -40,6 +40,7 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   const chunks = useGameStore((state) => state.chunks);
   const teleporters = useGameStore((state) => state.teleporters);
   const blackHole = useGameStore((state) => state.blackHole);
+  const hurricane = useGameStore((state) => state.hurricane);
   const respawnPosition = useGameStore((state) => state.respawnPosition);
   const setRespawnPosition = useGameStore((state) => state.setRespawnPosition);
   
@@ -310,6 +311,25 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       if (keys['Space'] && isGroundedRef.current) {
         velocityRef.current.y = JUMP_VELOCITY;
         isGroundedRef.current = false;
+      }
+    }
+
+    // Apply hurricane pull force (additive, player can still move)
+    const isBeingPulledByHurricane = hurricane.phase === 'forming' || hurricane.phase === 'active';
+    if (isBeingPulledByHurricane && hurricane.intensity > 0) {
+      const [hx, , hz] = hurricane.position;
+      const dx = hx - positionRef.current.x;
+      const dz = hz - positionRef.current.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      // Pull strength: base 8, inversely proportional to distance
+      // Active from 5-40 blocks distance
+      if (distance > 5 && distance < 40) {
+        const pullStrength = 8 * hurricane.intensity * (1 - (distance - 5) / 35);
+        if (distance > 0.1) {
+          velocityRef.current.x += (dx / distance) * pullStrength * dt;
+          velocityRef.current.z += (dz / distance) * pullStrength * dt;
+        }
       }
     }
 

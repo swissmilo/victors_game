@@ -8,6 +8,7 @@ import { EarthquakeSystem } from './EarthquakeSystem';
 import { BlackHoleSystem } from './BlackHoleSystem';
 import { TsunamiSystem } from './TsunamiSystem';
 import { BloodRainSystem } from './BloodRainSystem';
+import { HurricaneSystem } from './HurricaneSystem';
 
 interface SceneProps {
   isLocked: boolean;
@@ -85,6 +86,7 @@ export function Scene({
       <BlackHoleSystem />
       <TsunamiSystem />
       <BloodRainSystem />
+      <HurricaneSystem />
     </>
   );
 }

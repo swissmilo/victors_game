@@ -8,10 +8,10 @@ interface InventorySlot {
 }
 
 // Catastrophe types
-export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain';
+export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain' | 'hurricane';
 
 // Catastrophe sequence - order in which they occur
-const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain'];
+const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain', 'hurricane'];
 
 // Get a random starting point in the catastrophe sequence
 function getRandomCatastropheStart(): { current: CatastropheType; next: CatastropheType } {
@@ -66,6 +66,21 @@ interface BloodRainState {
   duration: number;         // How long the rain lasts
 }
 
+// Hurricane phases
+export type HurricanePhase = 'countdown' | 'forming' | 'active' | 'dissipating';
+
+interface HurricaneState {
+  phase: HurricanePhase;
+  countdown: number;          // Seconds until hurricane
+  position: [number, number, number];  // Current world position
+  intensity: number;          // 0-1, controls size and pull strength
+  angle: number;              // Current orbit angle around player
+  orbitRadius: number;        // Current distance from player
+  rotation: number;           // Funnel spin rotation
+  pullForce: [number, number, number];  // Force applied to player
+  hasDestroyedBlocks: boolean;  // Whether blocks have been destroyed this cycle
+}
+
 // Teleporter position
 export interface TeleporterPosition {
   x: number;
@@ -110,7 +125,10 @@ interface GameState {
   
   // Blood rain state
   bloodRain: BloodRainState;
-  
+
+  // Hurricane state
+  hurricane: HurricaneState;
+
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
   setPlayerRotation: (rotation: [number, number]) => void;
@@ -149,7 +167,11 @@ interface GameState {
   // Blood rain actions
   updateBloodRain: (updates: Partial<BloodRainState>) => void;
   resetBloodRain: () => void;
-  
+
+  // Hurricane actions
+  updateHurricane: (updates: Partial<HurricaneState>) => void;
+  resetHurricane: () => void;
+
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
   loadGame: (worldId?: string) => boolean;
@@ -187,6 +209,9 @@ const MAX_WATER_LEVEL = 70;    // Top of haunted mansion (~35 blocks above base 
 const BLOOD_RAIN_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 const BLOOD_RAIN_DURATION = 20;  // Seconds of blood rain
 
+// Hurricane configuration
+const HURRICANE_COUNTDOWN = CATASTROPHE_COUNTDOWN;
+
 const INITIAL_EARTHQUAKE: EarthquakeState = {
   phase: 'countdown',
   countdown: EARTHQUAKE_COUNTDOWN,
@@ -218,6 +243,18 @@ const INITIAL_BLOOD_RAIN: BloodRainState = {
   duration: BLOOD_RAIN_DURATION,
 };
 
+const INITIAL_HURRICANE: HurricaneState = {
+  phase: 'countdown',
+  countdown: HURRICANE_COUNTDOWN,
+  position: [0, 30, 0],
+  intensity: 0,
+  angle: 0,
+  orbitRadius: 25,
+  rotation: 0,
+  pullForce: [0, 0, 0],
+  hasDestroyedBlocks: false,
+};
+
 // Get random starting catastrophe for initial state
 const initialCatastrophe = getRandomCatastropheStart();
 
@@ -240,6 +277,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   blackHole: INITIAL_BLACK_HOLE,
   tsunami: INITIAL_TSUNAMI,
   bloodRain: INITIAL_BLOOD_RAIN,
+  hurricane: INITIAL_HURRICANE,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -411,11 +449,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   updateBloodRain: (updates) => set((state) => ({
     bloodRain: { ...state.bloodRain, ...updates },
   })),
-  
+
   resetBloodRain: () => set({
     bloodRain: INITIAL_BLOOD_RAIN,
   }),
-  
+
+  updateHurricane: (updates) => set((state) => ({
+    hurricane: { ...state.hurricane, ...updates },
+  })),
+
+  resetHurricane: () => set({
+    hurricane: INITIAL_HURRICANE,
+  }),
+
   saveGame: (worldId = 'default') => {
     const state = get();
     return saveWorld(
@@ -448,8 +494,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,
       bloodRain: INITIAL_BLOOD_RAIN,
+      hurricane: INITIAL_HURRICANE,
     });
-    
+
     return true;
   },
   
@@ -476,9 +523,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       blackHole: INITIAL_BLACK_HOLE,
       tsunami: INITIAL_TSUNAMI,
       bloodRain: INITIAL_BLOOD_RAIN,
+      hurricane: INITIAL_HURRICANE,
     });
   },
 }));
 
 // Export catastrophe constants for use in components
-export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION };
+export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN };

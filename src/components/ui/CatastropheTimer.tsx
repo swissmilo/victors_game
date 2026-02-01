@@ -8,6 +8,7 @@ export function CatastropheTimer() {
   const blackHole = useGameStore((state) => state.blackHole);
   const tsunami = useGameStore((state) => state.tsunami);
   const bloodRain = useGameStore((state) => state.bloodRain);
+  const hurricane = useGameStore((state) => state.hurricane);
   
   // Get current countdown and phase based on active catastrophe
   const getDisplayInfo = () => {
@@ -174,10 +175,10 @@ export function CatastropheTimer() {
             progressColor: 'bg-blue-400',
           };
       }
-    } else {
+    } else if (currentCatastrophe === 'blood_rain') {
       const { phase, countdown, intensity } = bloodRain;
       const intensityPercent = Math.round(intensity * 100);
-      
+
       switch (phase) {
         case 'countdown':
           return {
@@ -222,6 +223,57 @@ export function CatastropheTimer() {
             progress: intensityPercent,
             progressLabel: `Intensity: ${intensityPercent}%`,
             progressColor: 'bg-red-400',
+          };
+      }
+    } else {
+      // Hurricane
+      const { phase, countdown, intensity } = hurricane;
+      const intensityPercent = Math.round(intensity * 100);
+
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: Hurricane',
+            countdown,
+            color: 'text-cyan-400',
+            bgColor: 'bg-cyan-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-cyan-500',
+          };
+        case 'forming':
+          return {
+            title: 'HURRICANE FORMING!',
+            countdown: 0,
+            color: 'text-cyan-500',
+            bgColor: 'bg-cyan-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'Funnel forming...',
+            progressColor: 'bg-cyan-600',
+          };
+        case 'active':
+          return {
+            title: 'HURRICANE!',
+            countdown: 0,
+            color: 'text-gray-300',
+            bgColor: 'bg-gray-800/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: 'Destruction incoming!',
+            progressColor: 'bg-gray-600',
+          };
+        case 'dissipating':
+          return {
+            title: 'Hurricane Weakening',
+            countdown: 0,
+            color: 'text-cyan-300',
+            bgColor: 'bg-cyan-900/40',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: `Intensity: ${intensityPercent}%`,
+            progressColor: 'bg-cyan-400',
           };
       }
     }

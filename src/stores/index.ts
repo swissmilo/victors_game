@@ -1,2 +1,2 @@
-export { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION } from './gameStore';
-export type { CatastropheType, EarthquakePhase, BlackHolePhase, TsunamiPhase, BloodRainPhase, TeleporterPosition } from './gameStore';
+export { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN } from './gameStore';
+export type { CatastropheType, EarthquakePhase, BlackHolePhase, TsunamiPhase, BloodRainPhase, HurricanePhase, TeleporterPosition } from './gameStore';
