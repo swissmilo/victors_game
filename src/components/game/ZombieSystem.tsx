@@ -96,6 +96,7 @@ function generateInitialZombies(): ZombieData[] {
       isHit: false,
       hitTimer: 0,
       isDead: false,
+      deathTimer: 0,
     });
   }
 
@@ -176,17 +177,30 @@ function Zombie({
   // Update material color based on hit state
   useEffect(() => {
     if (data.isHit) {
-      material.color.setHex(0xff0000);
-      material.emissive.setHex(0xff0000);
-      material.emissiveIntensity = 0.5;
+      // Translucent red tint - keep texture visible
+      material.color.setHex(0xff8888); // Light red tint
+      material.emissive.setHex(0xff0000); // Red glow
+      material.emissiveIntensity = 0.3;
     } else {
       material.color.setHex(0xffffff);
       material.emissive.setHex(0x000000);
       material.emissiveIntensity = 0;
     }
-  }, [data.isHit, material]);
+  }, [data.isHit, data.id, material]);
 
-  if (data.isDead) return null;
+  // Fade out when dead
+  useEffect(() => {
+    if (data.isDead) {
+      // Fade from 1 to 0 over 1 second
+      const opacity = Math.max(0, 1 - data.deathTimer);
+      material.opacity = opacity;
+    } else {
+      material.opacity = 1;
+    }
+  }, [data.isDead, data.deathTimer, material]);
+
+  // Don't render if fade-out is complete
+  if (data.isDead && data.deathTimer > 1) return null;
 
   // Calculate body part positions
   const headY = BODY_HEIGHT / 2 + HEAD_SIZE / 2;
@@ -204,6 +218,21 @@ function Zombie({
       rotation={[0, data.rotation, 0]}
       userData={{ isZombie: true, zombieId: data.id }}
     >
+      {/* Invisible hitbox for easier clicking - covers entire zombie */}
+      <mesh
+        position={[0, 0, 0]}
+        userData={{ isZombie: true, zombieId: data.id }}
+        renderOrder={-1}
+      >
+        <boxGeometry args={[BODY_WIDTH * 1.5, TOTAL_HEIGHT + HEAD_SIZE, BODY_WIDTH * 1.5]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
+        />
+      </mesh>
+
       {/* Head */}
       <mesh geometry={geometries.headGeo} material={material} position={[0, headY, 0]} userData={{ isZombie: true, zombieId: data.id }} />
 
@@ -243,9 +272,10 @@ export function ZombieSystem() {
   const zombies = useGameStore((state) => state.zombies);
   const initializeZombies = useGameStore((state) => state.initializeZombies);
   const updateZombies = useGameStore((state) => state.updateZombies);
+  const getZombies = useGameStore.getState; // Get fresh state each frame
 
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const initialized = useRef(false);
+  const lastZombieCount = useRef(zombies.length);
 
   // Load zombie texture
   useEffect(() => {
@@ -258,13 +288,14 @@ export function ZombieSystem() {
     });
   }, []);
 
-  // Initialize zombies once
+  // Initialize zombies when needed (new world or after reset)
   useEffect(() => {
-    if (!initialized.current && zombies.length === 0) {
-      initialized.current = true;
+    // Only initialize if we have no zombies and we're playing
+    if (zombies.length === 0 && isPlaying) {
       initializeZombies(generateInitialZombies());
     }
-  }, [zombies.length, initializeZombies]);
+    lastZombieCount.current = zombies.length;
+  }, [zombies.length, isPlaying, initializeZombies]);
 
   // Find ground level at position
   const findGroundLevel = (x: number, z: number): number => {
@@ -287,12 +318,42 @@ export function ZombieSystem() {
     return 35;
   };
 
+  // Check if a position has a solid block (for collision)
+  const isSolidAt = (x: number, y: number, z: number): boolean => {
+    const chunkX = Math.floor(x / CHUNK_SIZE);
+    const chunkZ = Math.floor(z / CHUNK_SIZE);
+    const key = chunkPositionToKey({ x: chunkX, z: chunkZ });
+    const chunk = chunks.get(key);
+    if (!chunk) return false;
+
+    const localX = ((Math.floor(x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const localZ = ((Math.floor(z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const blockY = Math.floor(y);
+
+    if (blockY < 0 || blockY >= CHUNK_HEIGHT) return blockY < 0;
+
+    const block = getBlockFromChunk(chunk.data, localX, blockY, localZ);
+    return block !== BlockType.AIR;
+  };
+
   // Update zombies
   useFrame((_, delta) => {
-    if (!isPlaying || zombies.length === 0) return;
+    // Get fresh zombies state each frame to avoid stale closure
+    const currentZombies = getZombies().zombies;
 
-    const updatedZombies = zombies.map((zombie) => {
-      if (zombie.isDead) return zombie;
+    if (!isPlaying || currentZombies.length === 0) return;
+
+    const playerPos = useGameStore.getState().playerPosition;
+
+    const updatedZombies = currentZombies.map((zombie) => {
+      // If dead, just update death timer for fade-out
+      if (zombie.isDead) {
+        const newDeathTimer = zombie.deathTimer + delta;
+        return {
+          ...zombie,
+          deathTimer: newDeathTimer,
+        };
+      }
 
       // Update hit timer
       let isHit = zombie.isHit;
@@ -316,12 +377,59 @@ export function ZombieSystem() {
 
       // Move zombie
       const moveSpeed = ZOMBIE_SPEED * delta;
-      const newX = zombie.position[0] + targetDirection[0] * moveSpeed;
-      const newZ = zombie.position[2] + targetDirection[2] * moveSpeed;
+      let newX = zombie.position[0] + targetDirection[0] * moveSpeed;
+      let newZ = zombie.position[2] + targetDirection[2] * moveSpeed;
 
-      // Find ground level and adjust Y (add 1 block to prevent feet sinking)
+      // Check collision with player (radius-based)
+      const dx = newX - playerPos[0];
+      const dz = newZ - playerPos[2];
+      const distToPlayer = Math.sqrt(dx * dx + dz * dz);
+      const minDistance = 1.5; // Minimum distance to player
+
+      if (distToPlayer < minDistance) {
+        // Push zombie away from player
+        const pushAngle = Math.atan2(dx, dz);
+        newX = playerPos[0] + Math.sin(pushAngle) * minDistance;
+        newZ = playerPos[2] + Math.cos(pushAngle) * minDistance;
+        // Change direction away from player
+        targetDirection = [Math.sin(pushAngle), 0, Math.cos(pushAngle)];
+        wanderTimer = ZOMBIE_WANDER_INTERVAL;
+      }
+
+      // Find ground level
+      // Calculate Y position so feet are exactly at ground level
+      // Legs are at -BODY_HEIGHT/2 - LEG_HEIGHT/2 from group center
+      // Bottom of legs is LEG_HEIGHT/2 below that
+      const feetOffset = BODY_HEIGHT / 2 + LEG_HEIGHT; // Distance from group center to bottom of feet
       const groundY = findGroundLevel(newX, newZ);
-      const newY = groundY + TOTAL_HEIGHT / 2 + 1;
+      const newY = groundY + feetOffset;
+
+      // Check collision with blocks at new position
+      const zombieRadius = BODY_WIDTH / 2;
+      const checkPositions = [
+        [newX, newY, newZ],
+        [newX + zombieRadius, newY, newZ],
+        [newX - zombieRadius, newY, newZ],
+        [newX, newY, newZ + zombieRadius],
+        [newX, newY, newZ - zombieRadius],
+      ];
+
+      let hasCollision = false;
+      for (const [cx, cy, cz] of checkPositions) {
+        if (isSolidAt(cx, cy, cz) || isSolidAt(cx, cy + 1, cz)) {
+          hasCollision = true;
+          break;
+        }
+      }
+
+      // If collision, don't move and pick new direction
+      if (hasCollision) {
+        newX = zombie.position[0];
+        newZ = zombie.position[2];
+        const angle = Math.random() * Math.PI * 2;
+        targetDirection = [Math.cos(angle), 0, Math.sin(angle)];
+        wanderTimer = ZOMBIE_WANDER_INTERVAL * (0.5 + Math.random());
+      }
 
       // Update rotation to face movement direction
       const rotation = Math.atan2(targetDirection[0], targetDirection[2]);
@@ -334,6 +442,8 @@ export function ZombieSystem() {
         wanderTimer,
         isHit,
         hitTimer,
+        // Preserve health and isDead - they may have been updated by hitZombie
+        // Don't overwrite them here
       };
     });
 

@@ -64,6 +64,19 @@ function decompressRLE(compressed: number[], expectedLength: number): Uint8Array
   return result;
 }
 
+interface ZombieData {
+  id: number;
+  position: [number, number, number];
+  rotation: number;
+  health: number;
+  targetDirection: [number, number, number];
+  wanderTimer: number;
+  isHit: boolean;
+  hitTimer: number;
+  isDead: boolean;
+  deathTimer: number; // Time since death for fade-out animation
+}
+
 interface WorldSaveData {
   version: number;
   savedAt: number;
@@ -72,6 +85,7 @@ interface WorldSaveData {
   inventory: InventorySlot[];
   hotbarSelection: number;
   chunks: SavedChunk[];
+  zombies?: ZombieData[]; // Optional for backwards compatibility
 }
 
 interface WorldListEntry {
@@ -119,7 +133,8 @@ export function saveWorld(
   playerRotation: [number, number],
   inventory: InventorySlot[],
   hotbarSelection: number,
-  chunks: Map<string, { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }>
+  chunks: Map<string, { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }>,
+  zombies: ZombieData[] = []
 ): boolean {
   if (typeof window === 'undefined') return false;
   
@@ -158,13 +173,14 @@ export function saveWorld(
     }
     
     const saveData: WorldSaveData = {
-      version: 2, // Bump version for compressed format
+      version: 3, // Bump version for zombie data
       savedAt: Date.now(),
       playerPosition,
       playerRotation,
       inventory,
       hotbarSelection,
       chunks: savedChunks,
+      zombies,
     };
     
     const saveJson = JSON.stringify(saveData);

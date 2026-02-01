@@ -119,6 +119,7 @@ export interface ZombieData {
   isHit: boolean;
   hitTimer: number;
   isDead: boolean;
+  deathTimer: number; // Time since death for fade-out animation
 }
 
 interface GameState {
@@ -170,6 +171,7 @@ interface GameState {
 
   // Zombie state
   zombies: ZombieData[];
+  targetedZombieId: number | null; // ID of zombie being targeted by crosshair
 
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
@@ -226,6 +228,7 @@ interface GameState {
   initializeZombies: (zombies: ZombieData[]) => void;
   updateZombies: (zombies: ZombieData[]) => void;
   hitZombie: (id: number) => void;
+  setTargetedZombieId: (id: number | null) => void;
 
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
@@ -356,6 +359,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   meteorShower: INITIAL_METEOR_SHOWER,
   sandstorm: INITIAL_SANDSTORM,
   zombies: [],
+  targetedZombieId: null,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -560,21 +564,38 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   updateZombies: (zombies) => set({ zombies }),
 
-  hitZombie: (id) => set((state) => ({
-    zombies: state.zombies.map((z) => {
-      if (z.id === id && !z.isDead && !z.isHit) {
-        const newHealth = z.health - 1;
-        return {
-          ...z,
-          health: newHealth,
-          isHit: true,
-          hitTimer: 0.2,
-          isDead: newHealth <= 0,
-        };
-      }
-      return z;
-    }),
-  })),
+  hitZombie: (id) => {
+    const playerPos = get().playerPosition;
+
+    set((state) => ({
+      zombies: state.zombies.map((z) => {
+        if (z.id === id && !z.isDead && !z.isHit) {
+          const newHealth = z.health - 1;
+
+          // Calculate knockback direction (away from player)
+          const dx = z.position[0] - playerPos[0];
+          const dz = z.position[2] - playerPos[2];
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          const knockbackDir: [number, number, number] = distance > 0
+            ? [dx / distance, 0, dz / distance]
+            : [0, 0, 1]; // Default direction if on same spot
+
+          return {
+            ...z,
+            health: newHealth,
+            isHit: true,
+            hitTimer: 0.2,
+            isDead: newHealth <= 0,
+            deathTimer: newHealth <= 0 ? 0 : z.deathTimer, // Reset death timer when dying
+            targetDirection: knockbackDir, // Push zombie away from player
+          };
+        }
+        return z;
+      }),
+    }));
+  },
+
+  setTargetedZombieId: (id) => set({ targetedZombieId: id }),
 
   saveGame: (worldId = 'default') => {
     const state = get();
@@ -584,14 +605,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.playerRotation,
       state.inventory,
       state.hotbarSelection,
-      state.chunks
+      state.chunks,
+      state.zombies
     );
   },
   
   loadGame: (worldId = 'default') => {
     const saveData = loadWorld(worldId);
     if (!saveData) return false;
-    
+
     const chunks = convertLoadedChunks(saveData.chunks, saveData.version);
     const randomStart = getRandomCatastropheStart();
     set({
@@ -611,7 +633,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
-      zombies: [],
+      zombies: saveData.zombies || [], // Load saved zombies or empty array
     });
 
     return true;

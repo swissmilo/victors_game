@@ -10,6 +10,7 @@ import { CatastropheTimer } from '../ui/CatastropheTimer';
 import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
 import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
+import { ZombieTargetIndicator } from '../ui/ZombieTargetIndicator';
 import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN } from '@/stores';
 
 // Detect if running on touch device
@@ -258,6 +259,7 @@ export function Game() {
           <Crosshair hidden={isMobile} />
           <Hotbar isMobile={isMobile} />
           <CatastropheTimer />
+          <ZombieTargetIndicator />
           {isMobile && <MobileControls />}
           {isFlying && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">

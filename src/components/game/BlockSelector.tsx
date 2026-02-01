@@ -7,10 +7,6 @@ import { useGameStore } from '@/stores';
 import { raycastBlocks, setBlockAtWorld, BlockHit } from '@/lib/blockInteraction';
 import { BlockType } from '@/types';
 
-// Raycaster for zombie hit detection
-const zombieRaycaster = new THREE.Raycaster();
-zombieRaycaster.far = 10; // Can hit zombies from up to 10 blocks away
-
 // Helper to convert screen coordinates to ray direction
 function screenToRayDirection(
   screenX: number,
@@ -48,8 +44,8 @@ const CONTINUOUS_ACTION_COOLDOWN = 300;
 // Minimum distance from player for continuous placement (blocks)
 const MIN_CONTINUOUS_DISTANCE = 2.0;
 
-export function BlockSelector({ 
-  enabled, 
+export function BlockSelector({
+  enabled,
   isMobile = false,
   consumeTap,
   isHolding,
@@ -59,6 +55,7 @@ export function BlockSelector({
 }: BlockSelectorProps) {
   const { camera, size, scene } = useThree();
   const [targetBlock, setTargetBlock] = useState<BlockHit | null>(null);
+  const [targetedZombieId, setTargetedZombieId] = useState<number | null>(null);
   const highlightRef = useRef<THREE.Mesh>(null);
   const hasTriggeredBreak = useRef(false);  // Track if we've broken a block during current hold
   
@@ -83,6 +80,7 @@ export function BlockSelector({
   const playerPosition = useGameStore((state) => state.playerPosition);
   const hitZombie = useGameStore((state) => state.hitZombie);
   const zombies = useGameStore((state) => state.zombies);
+  const setTargetedZombieInStore = useGameStore((state) => state.setTargetedZombieId);
   
   // Helper to check if a position is far enough from player for continuous action
   const isFarEnoughFromPlayer = useCallback((pos: { x: number; y: number; z: number }) => {
@@ -102,42 +100,53 @@ export function BlockSelector({
     return result;
   }, [chunks]);
 
-  // Check if ray hits a zombie and return the zombie id, or null
+  // Check if ray hits a zombie using manual distance check (like block raycasting)
   const checkZombieHit = useCallback((): number | null => {
-    // Find the zombies group in the scene
-    const zombiesGroup = scene.getObjectByName('zombies');
-    if (!zombiesGroup) return null;
+    if (zombies.length === 0) return null;
 
-    // Update world matrices to ensure accurate raycasting
-    zombiesGroup.updateMatrixWorld(true);
-
-    // Set up raycaster from camera center
+    // Get ray direction from camera
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(camera.quaternion);
     direction.normalize();
-    zombieRaycaster.set(camera.position, direction);
 
-    // Get all intersections with zombie meshes (recursive)
-    const intersects = zombieRaycaster.intersectObjects(zombiesGroup.children, true);
+    const origin = camera.position.clone();
+    const maxDistance = 10; // Maximum reach distance
+    const zombieHitRadius = 2.5; // How close to zombie center counts as a hit (scaled for 4x size)
 
-    // Find the closest zombie hit
-    for (const intersect of intersects) {
-      // Check userData for zombie info - walk up the object hierarchy
-      let obj: THREE.Object3D | null = intersect.object;
-      while (obj) {
-        if (obj.userData?.isZombie && typeof obj.userData?.zombieId === 'number') {
-          // Check if this zombie is alive
-          const zombie = zombies.find(z => z.id === obj!.userData.zombieId);
-          if (zombie && !zombie.isDead) {
-            return obj.userData.zombieId;
-          }
+    // Step along the ray and check distance to each zombie
+    let closestZombieId: number | null = null;
+    let closestDistance = Infinity;
+
+    const step = 0.1; // Step size along ray
+    for (let t = 0; t < maxDistance; t += step) {
+      const rayPoint = origin.clone().add(direction.clone().multiplyScalar(t));
+
+      // Check all zombies
+      for (const zombie of zombies) {
+        if (zombie.isDead) continue;
+
+        const zombiePos = new THREE.Vector3(
+          zombie.position[0],
+          zombie.position[1],
+          zombie.position[2]
+        );
+
+        const distToZombie = rayPoint.distanceTo(zombiePos);
+
+        if (distToZombie < zombieHitRadius && t < closestDistance) {
+          closestZombieId = zombie.id;
+          closestDistance = t;
         }
-        obj = obj.parent;
+      }
+
+      // If we found a zombie, stop checking further
+      if (closestZombieId !== null) {
+        break;
       }
     }
 
-    return null;
-  }, [scene, camera, zombies]);
+    return closestZombieId;
+  }, [camera, zombies]);
 
   // Break block at specific hit position
   const breakBlockAt = useCallback((hit: BlockHit) => {
@@ -308,19 +317,26 @@ export function BlockSelector({
     };
   }, [enabled, breakBlock, placeBlock, targetBlock, checkZombieHit, hitZombie]);
 
-  // Raycast every frame to find targeted block
+  // Raycast every frame to find targeted block and zombie
   useFrame(() => {
     if (!enabled) {
       setTargetBlock(null);
+      setTargetedZombieId(null);
+      setTargetedZombieInStore(null);
       return;
     }
 
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(camera.quaternion);
-    
+
+    // Check for zombie first
+    const zombieId = checkZombieHit();
+    setTargetedZombieId(zombieId); // Local state
+    setTargetedZombieInStore(zombieId); // Store state for UI
+
     const chunksMap = getChunksForRaycast();
     const hit = raycastBlocks(camera.position, direction, chunksMap, 6);
-    
+
     setTargetBlock(hit);
     
     // Desktop: Continuous breaking while left mouse held and moving to new blocks
@@ -361,12 +377,52 @@ export function BlockSelector({
     
     // Handle mobile touch controls
     if (isMobile) {
-      // Check for tap (place block) - raycast from tap position
+      // Check for tap - first check for zombie hit, then place block
       if (consumeTap) {
         const tap = consumeTap();
-        if (tap) {
-          // Raycast from tap position instead of screen center
+        if (tap && zombies.length > 0) {
+          // Manual raycast for zombie hit at tap position
           const tapDirection = screenToRayDirection(tap.x, tap.y, camera, size);
+          tapDirection.normalize();
+          const origin = camera.position.clone();
+          const maxDistance = 10;
+          const zombieHitRadius = 2.5;
+
+          let hitZombieId: number | null = null;
+          let closestDistance = Infinity;
+
+          const step = 0.1;
+          for (let t = 0; t < maxDistance; t += step) {
+            const rayPoint = origin.clone().add(tapDirection.clone().multiplyScalar(t));
+
+            for (const zombie of zombies) {
+              if (zombie.isDead) continue;
+
+              const zombiePos = new THREE.Vector3(
+                zombie.position[0],
+                zombie.position[1],
+                zombie.position[2]
+              );
+
+              const distToZombie = rayPoint.distanceTo(zombiePos);
+
+              if (distToZombie < zombieHitRadius && t < closestDistance) {
+                hitZombieId = zombie.id;
+                closestDistance = t;
+              }
+            }
+
+            if (hitZombieId !== null) {
+              break;
+            }
+          }
+
+          if (hitZombieId !== null) {
+            hitZombie(hitZombieId);
+            return; // Don't place block if we hit a zombie
+          }
+
+          // No zombie hit, raycast for blocks and place block
           const tapHit = raycastBlocks(camera.position, tapDirection, chunksMap, 6);
           if (tapHit) {
             placeBlockAt(tapHit);
