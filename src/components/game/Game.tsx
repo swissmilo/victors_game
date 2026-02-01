@@ -10,7 +10,7 @@ import { CatastropheTimer } from '../ui/CatastropheTimer';
 import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
 import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
-import { useGameStore } from '@/stores';
+import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN } from '@/stores';
 
 // Detect if running on touch device
 const isTouchDevice = () => {
@@ -37,7 +37,36 @@ export function Game() {
   const chunks = useGameStore((state) => state.chunks);
   const earthquake = useGameStore((state) => state.earthquake);
   const blackHole = useGameStore((state) => state.blackHole);
+  const tsunami = useGameStore((state) => state.tsunami);
+  const bloodRain = useGameStore((state) => state.bloodRain);
+  const hurricane = useGameStore((state) => state.hurricane);
+  const meteorShower = useGameStore((state) => state.meteorShower);
+  const sandstorm = useGameStore((state) => state.sandstorm);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
+  const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
+  const nextCatastrophe = useGameStore((state) => state.nextCatastrophe);
+  const updateEarthquake = useGameStore((state) => state.updateEarthquake);
+  const updateBlackHole = useGameStore((state) => state.updateBlackHole);
+  const updateTsunami = useGameStore((state) => state.updateTsunami);
+  const updateBloodRain = useGameStore((state) => state.updateBloodRain);
+  const updateHurricane = useGameStore((state) => state.updateHurricane);
+  const updateMeteorShower = useGameStore((state) => state.updateMeteorShower);
+  const updateSandstorm = useGameStore((state) => state.updateSandstorm);
+  const isPlaying = useGameStore((state) => state.isPlaying);
+
+  // Check if current catastrophe is in countdown phase (only then can we skip)
+  const isInCountdown = (() => {
+    switch (currentCatastrophe) {
+      case 'earthquake': return earthquake.phase === 'countdown';
+      case 'black_hole': return blackHole.phase === 'countdown';
+      case 'tsunami': return tsunami.phase === 'countdown';
+      case 'blood_rain': return bloodRain.phase === 'countdown';
+      case 'hurricane': return hurricane.phase === 'countdown';
+      case 'meteor_shower': return meteorShower.phase === 'countdown';
+      case 'sandstorm': return sandstorm.phase === 'countdown';
+      default: return false;
+    }
+  })();
   
   // Determine if earthquake shake should be active
   const isEarthquakeActive = currentCatastrophe === 'earthquake' && earthquake.phase !== 'countdown';
@@ -47,6 +76,9 @@ export function Game() {
   
   // Black hole blackout opacity
   const blackoutOpacity = currentCatastrophe === 'black_hole' ? blackHole.blackoutOpacity : 0;
+
+  // Determine if sandstorm overlay should be active
+  const isSandstormActive = currentCatastrophe === 'sandstorm' && sandstorm.phase !== 'countdown';
 
   // Handle starting the game from menu
   const handleStartGame = useCallback(() => {
@@ -92,27 +124,69 @@ export function Game() {
   // Save when losing focus or closing tab
   useEffect(() => {
     if (!gameStarted) return;
-    
+
     const handleBeforeUnload = () => {
       if (chunks.size > 0) {
         saveGame();
       }
     };
-    
+
     const handleVisibilityChange = () => {
       if (document.hidden && chunks.size > 0) {
         saveGame();
       }
     };
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [gameStarted, saveGame, chunks.size]);
+
+  // Handle "N" key to skip to next catastrophe (only during countdown phase)
+  useEffect(() => {
+    if (!gameStarted || !isPlaying) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'n' || e.key === 'N') && isInCountdown) {
+        // Switch to the next catastrophe
+        switchToNextCatastrophe();
+
+        // Reset the new current catastrophe's countdown based on what it will be
+        // nextCatastrophe becomes the new current after switching
+        const newCurrent = nextCatastrophe;
+        switch (newCurrent) {
+          case 'earthquake':
+            updateEarthquake({ phase: 'countdown', countdown: EARTHQUAKE_COUNTDOWN, intensity: 0, hasDestroyedBlocks: false });
+            break;
+          case 'black_hole':
+            updateBlackHole({ phase: 'countdown', countdown: BLACK_HOLE_COUNTDOWN, intensity: 0, blackoutOpacity: 0, pullForce: [0, 0, 0] });
+            break;
+          case 'tsunami':
+            updateTsunami({ phase: 'countdown', countdown: TSUNAMI_COUNTDOWN, waterLevel: 0 });
+            break;
+          case 'blood_rain':
+            updateBloodRain({ phase: 'countdown', countdown: BLOOD_RAIN_COUNTDOWN, intensity: 0 });
+            break;
+          case 'hurricane':
+            updateHurricane({ phase: 'countdown', countdown: HURRICANE_COUNTDOWN, intensity: 0, hasDestroyedBlocks: false, pullForce: [0, 0, 0] });
+            break;
+          case 'meteor_shower':
+            updateMeteorShower({ phase: 'countdown', countdown: METEOR_SHOWER_COUNTDOWN, intensity: 0, meteorsSpawned: 0 });
+            break;
+          case 'sandstorm':
+            updateSandstorm({ phase: 'countdown', countdown: SANDSTORM_COUNTDOWN, intensity: 0, sandPlaced: 0 });
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameStarted, isPlaying, isInCountdown, nextCatastrophe, switchToNextCatastrophe, updateEarthquake, updateBlackHole, updateTsunami, updateBloodRain, updateHurricane, updateMeteorShower, updateSandstorm]);
 
   return (
     <div 
@@ -151,9 +225,18 @@ export function Game() {
           )}
           {/* Black hole blackout overlay */}
           {blackoutOpacity > 0 && (
-            <div 
+            <div
               className="absolute inset-0 pointer-events-none bg-black"
               style={{ opacity: blackoutOpacity }}
+            />
+          )}
+          {/* Sandstorm yellow tint overlay */}
+          {isSandstormActive && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, transparent 30%, rgba(194, 163, 90, ${sandstorm.intensity * 0.5}) 100%)`,
+              }}
             />
           )}
         </div>

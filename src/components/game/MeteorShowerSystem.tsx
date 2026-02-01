@@ -3,7 +3,7 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore, METEOR_SHOWER_COUNTDOWN, EARTHQUAKE_COUNTDOWN } from '@/stores';
+import { useGameStore, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN } from '@/stores';
 import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk, chunkPositionToKey } from '@/types';
 
 // Meteor shower timing configuration
@@ -66,7 +66,7 @@ export function MeteorShowerSystem() {
   const isPlaying = useGameStore((state) => state.isPlaying);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
-  const updateEarthquake = useGameStore((state) => state.updateEarthquake);
+  const updateSandstorm = useGameStore((state) => state.updateSandstorm);
 
   const { scene } = useThree();
   const phaseTimer = useRef(0);
@@ -328,9 +328,9 @@ export function MeteorShowerSystem() {
           }
 
           switchToNextCatastrophe();
-          updateEarthquake({
+          updateSandstorm({
             phase: 'countdown',
-            countdown: EARTHQUAKE_COUNTDOWN,
+            countdown: SANDSTORM_COUNTDOWN,
           });
         }
         break;

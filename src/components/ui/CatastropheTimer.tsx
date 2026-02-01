@@ -10,6 +10,7 @@ export function CatastropheTimer() {
   const bloodRain = useGameStore((state) => state.bloodRain);
   const hurricane = useGameStore((state) => state.hurricane);
   const meteorShower = useGameStore((state) => state.meteorShower);
+  const sandstorm = useGameStore((state) => state.sandstorm);
   
   // Get current countdown and phase based on active catastrophe
   const getDisplayInfo = () => {
@@ -276,7 +277,7 @@ export function CatastropheTimer() {
             progressColor: 'bg-cyan-400',
           };
       }
-    } else {
+    } else if (currentCatastrophe === 'meteor_shower') {
       // Meteor Shower
       const { phase, countdown, intensity, meteorsSpawned } = meteorShower;
       const intensityPercent = Math.round(intensity * 100);
@@ -325,6 +326,57 @@ export function CatastropheTimer() {
             progress: intensityPercent,
             progressLabel: `Intensity: ${intensityPercent}%`,
             progressColor: 'bg-orange-400',
+          };
+      }
+    } else {
+      // Sandstorm
+      const { phase, countdown, intensity, sandPlaced } = sandstorm;
+      const intensityPercent = Math.round(intensity * 100);
+
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: Sandstorm',
+            countdown,
+            color: 'text-yellow-400',
+            bgColor: 'bg-yellow-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-yellow-500',
+          };
+        case 'starting':
+          return {
+            title: 'SANDSTORM APPROACHING!',
+            countdown: 0,
+            color: 'text-yellow-500',
+            bgColor: 'bg-yellow-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'Visibility dropping...',
+            progressColor: 'bg-yellow-600',
+          };
+        case 'active':
+          return {
+            title: 'SANDSTORM!',
+            countdown: 0,
+            color: 'text-yellow-600',
+            bgColor: 'bg-yellow-800/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: `Sand deposited: ${sandPlaced}`,
+            progressColor: 'bg-yellow-700',
+          };
+        case 'ending':
+          return {
+            title: 'Storm Subsiding',
+            countdown: 0,
+            color: 'text-yellow-300',
+            bgColor: 'bg-yellow-900/40',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: `Intensity: ${intensityPercent}%`,
+            progressColor: 'bg-yellow-400',
           };
       }
     }

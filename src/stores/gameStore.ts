@@ -8,10 +8,10 @@ interface InventorySlot {
 }
 
 // Catastrophe types
-export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain' | 'hurricane' | 'meteor_shower';
+export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain' | 'hurricane' | 'meteor_shower' | 'sandstorm';
 
 // Catastrophe sequence - order in which they occur
-const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain', 'hurricane', 'meteor_shower'];
+const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain', 'hurricane', 'meteor_shower', 'sandstorm'];
 
 // Get a random starting point in the catastrophe sequence
 function getRandomCatastropheStart(): { current: CatastropheType; next: CatastropheType } {
@@ -91,6 +91,16 @@ interface MeteorShowerState {
   meteorsSpawned: number;     // Count of meteors spawned this cycle
 }
 
+// Sandstorm phases
+export type SandstormPhase = 'countdown' | 'starting' | 'active' | 'ending';
+
+interface SandstormState {
+  phase: SandstormPhase;
+  countdown: number;          // Seconds until sandstorm
+  intensity: number;          // 0-1, controls visibility and particle density
+  sandPlaced: number;         // Count of sand blocks placed this cycle
+}
+
 // Teleporter position
 export interface TeleporterPosition {
   x: number;
@@ -142,6 +152,9 @@ interface GameState {
   // Meteor shower state
   meteorShower: MeteorShowerState;
 
+  // Sandstorm state
+  sandstorm: SandstormState;
+
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
   setPlayerRotation: (rotation: [number, number]) => void;
@@ -189,6 +202,10 @@ interface GameState {
   updateMeteorShower: (updates: Partial<MeteorShowerState>) => void;
   resetMeteorShower: () => void;
 
+  // Sandstorm actions
+  updateSandstorm: (updates: Partial<SandstormState>) => void;
+  resetSandstorm: () => void;
+
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
   loadGame: (worldId?: string) => boolean;
@@ -231,6 +248,9 @@ const HURRICANE_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 
 // Meteor shower configuration
 const METEOR_SHOWER_COUNTDOWN = CATASTROPHE_COUNTDOWN;
+
+// Sandstorm configuration
+const SANDSTORM_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 
 const INITIAL_EARTHQUAKE: EarthquakeState = {
   phase: 'countdown',
@@ -282,6 +302,13 @@ const INITIAL_METEOR_SHOWER: MeteorShowerState = {
   meteorsSpawned: 0,
 };
 
+const INITIAL_SANDSTORM: SandstormState = {
+  phase: 'countdown',
+  countdown: SANDSTORM_COUNTDOWN,
+  intensity: 0,
+  sandPlaced: 0,
+};
+
 // Get random starting catastrophe for initial state
 const initialCatastrophe = getRandomCatastropheStart();
 
@@ -306,6 +333,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   bloodRain: INITIAL_BLOOD_RAIN,
   hurricane: INITIAL_HURRICANE,
   meteorShower: INITIAL_METEOR_SHOWER,
+  sandstorm: INITIAL_SANDSTORM,
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -498,6 +526,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     meteorShower: INITIAL_METEOR_SHOWER,
   }),
 
+  updateSandstorm: (updates) => set((state) => ({
+    sandstorm: { ...state.sandstorm, ...updates },
+  })),
+
+  resetSandstorm: () => set({
+    sandstorm: INITIAL_SANDSTORM,
+  }),
+
   saveGame: (worldId = 'default') => {
     const state = get();
     return saveWorld(
@@ -532,6 +568,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       bloodRain: INITIAL_BLOOD_RAIN,
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
+      sandstorm: INITIAL_SANDSTORM,
     });
 
     return true;
@@ -562,9 +599,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       bloodRain: INITIAL_BLOOD_RAIN,
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
+      sandstorm: INITIAL_SANDSTORM,
     });
   },
 }));
 
 // Export catastrophe constants for use in components
-export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN };
+export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN };
