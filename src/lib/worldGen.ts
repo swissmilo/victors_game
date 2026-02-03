@@ -683,6 +683,80 @@ function generateNetherPortal(
   placeBlock(baseX + portalWidth, baseY + 1, baseZ, BlockType.OBSIDIAN);
 }
 
+// Missile site location (near haunted house)
+export const MISSILE_SITE_X = 15;
+export const MISSILE_SITE_Z = 10;
+export const MISSILE_SITE_Y = 30; // Ground level for launch pad
+
+/**
+ * Generate missile launch pad and control panel in a chunk
+ */
+function generateMissileSiteInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  const placeBlock = (worldX: number, worldY: number, worldZ: number, blockType: BlockType) => {
+    const localX = worldX - chunkWorldX;
+    const localZ = worldZ - chunkWorldZ;
+    if (localX >= 0 && localX < CHUNK_SIZE && localZ >= 0 && localZ < CHUNK_SIZE && worldY >= 0 && worldY < CHUNK_HEIGHT) {
+      setBlockInChunk(chunk, localX, worldY, localZ, blockType);
+    }
+  };
+
+  // Get terrain height at missile site location and place launch pad 2 blocks above it
+  const terrainHeight = getTerrainHeightAt(MISSILE_SITE_X, MISSILE_SITE_Z);
+  const launchPadY = terrainHeight + 2;
+
+  // Launch pad - 5x5 metal platform
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      placeBlock(MISSILE_SITE_X + dx, launchPadY, MISSILE_SITE_Z + dz, BlockType.METAL);
+    }
+  }
+
+  // Support pillars under launch pad (go down to terrain)
+  for (let y = launchPadY - 1; y >= terrainHeight; y--) {
+    placeBlock(MISSILE_SITE_X - 2, y, MISSILE_SITE_Z - 2, BlockType.METAL);
+    placeBlock(MISSILE_SITE_X + 2, y, MISSILE_SITE_Z - 2, BlockType.METAL);
+    placeBlock(MISSILE_SITE_X - 2, y, MISSILE_SITE_Z + 2, BlockType.METAL);
+    placeBlock(MISSILE_SITE_X + 2, y, MISSILE_SITE_Z + 2, BlockType.METAL);
+  }
+
+  // Control panel - 5 blocks away from launch pad
+  const controlPanelX = MISSILE_SITE_X + 5;
+  const controlPanelZ = MISSILE_SITE_Z;
+  const controlPanelTerrainHeight = getTerrainHeightAt(controlPanelX, controlPanelZ);
+
+  // Base at terrain level
+  placeBlock(controlPanelX, controlPanelTerrainHeight, controlPanelZ, BlockType.STONE);
+
+  // Panel upright (using cobblestone)
+  placeBlock(controlPanelX, controlPanelTerrainHeight + 1, controlPanelZ, BlockType.COBBLESTONE);
+  placeBlock(controlPanelX, controlPanelTerrainHeight + 2, controlPanelZ, BlockType.COBBLESTONE);
+
+  // Button (using obsidian as a distinctive block)
+  placeBlock(controlPanelX, controlPanelTerrainHeight + 2, controlPanelZ - 1, BlockType.OBSIDIAN);
+}
+
+/**
+ * Check if a chunk could contain the missile site
+ */
+function chunkContainsMissileSite(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const siteMinX = MISSILE_SITE_X - 5;
+  const siteMaxX = MISSILE_SITE_X + 10;
+  const siteMinZ = MISSILE_SITE_Z - 5;
+  const siteMaxZ = MISSILE_SITE_Z + 5;
+
+  const chunkMinX = chunkWorldX;
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMinZ = chunkWorldZ;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  return !(chunkMaxX < siteMinX || chunkMinX > siteMaxX ||
+           chunkMaxZ < siteMinZ || chunkMinZ > siteMaxZ);
+}
+
 /**
  * Check if a chunk could contain part of the haunted mansion
  */
@@ -769,6 +843,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   // Add haunted mansion if this chunk overlaps with it
   if (chunkContainsMansion(worldX, worldZ)) {
     generateHauntedMansionInChunk(chunk, worldX, worldZ);
+  }
+
+  // Add missile launch pad and control panel if this chunk contains it
+  if (chunkContainsMissileSite(worldX, worldZ)) {
+    generateMissileSiteInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;

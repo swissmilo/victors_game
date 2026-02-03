@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { useGameStore } from '@/stores';
 import { raycastBlocks, setBlockAtWorld, BlockHit } from '@/lib/blockInteraction';
 import { BlockType } from '@/types';
+import { MISSILE_SITE_X, MISSILE_SITE_Y, MISSILE_SITE_Z } from '@/lib/worldGen';
 
 // Helper to convert screen coordinates to ray direction
 function screenToRayDirection(
@@ -191,6 +192,30 @@ export function BlockSelector({
   // Break block (left click) - uses current target
   const breakBlock = useCallback(() => {
     if (!targetBlock) return;
+
+    // Check if clicking the missile launch button (obsidian at control panel)
+    const pos = targetBlock.blockPosition;
+    const blockX = Math.floor(pos.x);
+    const blockY = Math.floor(pos.y);
+    const blockZ = Math.floor(pos.z);
+
+    // Control panel button is obsidian at X=20, Z=9 (any Y, since terrain height varies)
+    // It's located 5 blocks from missile site X, and 1 block in front of panel Z
+    const buttonX = MISSILE_SITE_X + 5;
+    const buttonZ = MISSILE_SITE_Z - 1;
+
+    if (blockX === buttonX && blockZ === buttonZ && targetBlock.blockType === BlockType.OBSIDIAN) {
+      // Launch missile!
+      const launchMissile = useGameStore.getState().launchMissile;
+      const missileState = useGameStore.getState().missileState;
+
+      // Only launch if missile is idle
+      if (missileState === 'idle') {
+        launchMissile();
+      }
+      return; // Don't break the button
+    }
+
     breakBlockAt(targetBlock);
   }, [targetBlock, breakBlockAt]);
 

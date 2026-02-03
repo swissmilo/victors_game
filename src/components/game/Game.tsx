@@ -11,6 +11,7 @@ import { UnderwaterOverlay } from '../ui/UnderwaterOverlay';
 import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
 import { ZombieTargetIndicator } from '../ui/ZombieTargetIndicator';
+import { ParkourIndicator } from '../ui/ParkourIndicator';
 import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN } from '@/stores';
 
 // Detect if running on touch device
@@ -44,6 +45,7 @@ export function Game() {
   const meteorShower = useGameStore((state) => state.meteorShower);
   const sandstorm = useGameStore((state) => state.sandstorm);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
+  const isInBlackHoleParkour = useGameStore((state) => state.isInBlackHoleParkour);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
   const nextCatastrophe = useGameStore((state) => state.nextCatastrophe);
   const updateEarthquake = useGameStore((state) => state.updateEarthquake);
@@ -258,7 +260,8 @@ export function Game() {
           <UnderwaterOverlay />
           <Crosshair hidden={isMobile} />
           <Hotbar isMobile={isMobile} />
-          <CatastropheTimer />
+          {!isInBlackHoleParkour && <CatastropheTimer />}
+          {isInBlackHoleParkour && <ParkourIndicator />}
           <ZombieTargetIndicator />
           {isMobile && <MobileControls />}
           {isFlying && (

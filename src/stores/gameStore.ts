@@ -173,6 +173,16 @@ interface GameState {
   zombies: ZombieData[];
   targetedZombieId: number | null; // ID of zombie being targeted by crosshair
 
+  // Black Hole Parkour state
+  isInBlackHoleParkour: boolean;
+  parkourLevel: number; // 1 or 2
+  parkourCheckpoint: [number, number, number]; // Respawn position
+
+  // Nuclear Missile state
+  missileState: 'idle' | 'launching' | 'flying' | 'exploded';
+  missilePosition: [number, number, number];
+  missileTarget: [number, number, number]; // Where it will hit
+
   // Actions
   setPlayerPosition: (position: [number, number, number]) => void;
   setPlayerRotation: (rotation: [number, number]) => void;
@@ -229,6 +239,17 @@ interface GameState {
   updateZombies: (zombies: ZombieData[]) => void;
   hitZombie: (id: number) => void;
   setTargetedZombieId: (id: number | null) => void;
+
+  // Black Hole Parkour actions
+  enterBlackHoleParkour: () => void;
+  exitBlackHoleParkour: () => void;
+  setParkourLevel: (level: number) => void;
+  respawnAtParkourCheckpoint: () => void;
+
+  // Nuclear Missile actions
+  launchMissile: () => void;
+  updateMissilePosition: (position: [number, number, number]) => void;
+  resetMissile: () => void;
 
   // Persistence actions
   saveGame: (worldId?: string) => boolean;
@@ -360,6 +381,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   sandstorm: INITIAL_SANDSTORM,
   zombies: [],
   targetedZombieId: null,
+  isInBlackHoleParkour: false,
+  parkourLevel: 1,
+  parkourCheckpoint: [0, 43, 0], // Spawn above start platform
+  missileState: 'idle',
+  missilePosition: [15, 37, 10], // Near haunted house, above launch pad
+  missileTarget: [25, 37, 20], // Haunted house center
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -597,6 +624,64 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setTargetedZombieId: (id) => set({ targetedZombieId: id }),
 
+  enterBlackHoleParkour: () => {
+    // Level 1 start platform position (spawn 3 blocks above platform at Y=40)
+    const startPos: [number, number, number] = [0, 43, 0];
+    set({
+      isInBlackHoleParkour: true,
+      parkourLevel: 1,
+      parkourCheckpoint: startPos,
+      playerPosition: startPos,
+      respawnPosition: startPos, // Force immediate teleport
+    });
+  },
+
+  exitBlackHoleParkour: () => {
+    // Return to normal world spawn
+    set({
+      isInBlackHoleParkour: false,
+      parkourLevel: 1,
+      playerPosition: [8, 50, 8],
+    });
+  },
+
+  setParkourLevel: (level) => {
+    const checkpoint: [number, number, number] = level === 2
+      ? [0, 43, 50] // Level 2 start (spawn 3 blocks above mountain base at Y=40)
+      : [0, 43, 0];  // Level 1 start (spawn 3 blocks above start platform at Y=40)
+    set({
+      parkourLevel: level,
+      parkourCheckpoint: checkpoint,
+      playerPosition: checkpoint,
+      respawnPosition: checkpoint, // Force immediate teleport
+    });
+  },
+
+  respawnAtParkourCheckpoint: () => {
+    const checkpoint = get().parkourCheckpoint;
+    set({
+      playerPosition: checkpoint,
+      respawnPosition: checkpoint, // Force immediate teleport
+    });
+  },
+
+  // Nuclear Missile actions
+  launchMissile: () => {
+    set({ missileState: 'launching' });
+  },
+
+  updateMissilePosition: (position) => {
+    set({ missilePosition: position });
+  },
+
+  resetMissile: () => {
+    set({
+      missileState: 'idle',
+      missilePosition: [15, 37, 10],
+      missileTarget: [25, 37, 20],
+    });
+  },
+
   saveGame: (worldId = 'default') => {
     const state = get();
     return saveWorld(
@@ -666,6 +751,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
       zombies: [],
+      missileState: 'idle',
+      missilePosition: [15, 37, 10],
+      missileTarget: [25, 37, 20],
     });
   },
 }));

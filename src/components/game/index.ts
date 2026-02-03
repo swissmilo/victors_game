@@ -10,3 +10,4 @@ export { HurricaneSystem } from './HurricaneSystem';
 export { MeteorShowerSystem } from './MeteorShowerSystem';
 export { SandstormSystem } from './SandstormSystem';
 export { ZombieSystem } from './ZombieSystem';
+export { BlackHoleParkour } from './BlackHoleParkour';

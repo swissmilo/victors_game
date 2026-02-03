@@ -27,6 +27,7 @@ export function BlackHoleSystem() {
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
   const updateTsunami = useGameStore((state) => state.updateTsunami);
+  const enterBlackHoleParkour = useGameStore((state) => state.enterBlackHoleParkour);
   
   // Store player's original position when black hole starts
   const originalPositionRef = useRef<[number, number, number] | null>(null);
@@ -98,7 +99,32 @@ export function BlackHoleSystem() {
       case 'pulling': {
         // Player is being pulled toward black hole (handled by Player component)
         phaseTimer.current += delta;
-        
+
+        // Check if player is close enough to enter the black hole
+        const dx = playerPosition[0] - blackHole.position[0];
+        const dy = playerPosition[1] - blackHole.position[1];
+        const dz = playerPosition[2] - blackHole.position[2];
+        const distanceToBlackHole = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // If within 8 blocks of black hole, enter parkour dimension
+        if (distanceToBlackHole < 8) {
+          enterBlackHoleParkour();
+          // Reset black hole and skip to next catastrophe
+          originalPositionRef.current = null;
+          updateBlackHole({
+            phase: 'countdown',
+            countdown: BLACK_HOLE_COUNTDOWN,
+            intensity: 0,
+            blackoutOpacity: 0,
+            position: [0, 40, 0],
+            pullForce: [0, 0, 0],
+          });
+          phaseTimer.current = 0;
+          switchToNextCatastrophe();
+          updateTsunami({ phase: 'countdown', countdown: TSUNAMI_COUNTDOWN });
+          break;
+        }
+
         if (phaseTimer.current >= PULLING_DURATION) {
           updateBlackHole({ phase: 'consuming' });
           phaseTimer.current = 0;
