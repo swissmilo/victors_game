@@ -134,6 +134,7 @@ interface GameState {
   
   // World state
   chunks: Map<string, Chunk>;
+  parkourChunks: Map<string, Chunk>; // Separate storage for parkour chunks
   renderDistance: number;
   
   // Teleporter positions (placed by player)
@@ -192,6 +193,8 @@ interface GameState {
   removeFromInventory: (slot: number, count?: number) => boolean;
   getChunk: (position: ChunkPosition) => Chunk | undefined;
   setChunk: (position: ChunkPosition, chunk: Chunk) => void;
+  setParkourChunk: (position: ChunkPosition, chunk: Chunk) => void;
+  clearParkourChunks: () => void;
   markChunkDirty: (position: ChunkPosition) => void;
   unloadDistantChunks: (playerChunkX: number, playerChunkZ: number, maxDistance: number) => void;
   setIsPlaying: (isPlaying: boolean) => void;
@@ -365,6 +368,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   inventory: INITIAL_INVENTORY,
   hotbarSelection: 0,
   chunks: new Map(),
+  parkourChunks: new Map(),
   renderDistance: 4,
   teleporters: [],
   isPlaying: false,
@@ -454,6 +458,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newChunks = new Map(get().chunks);
     newChunks.set(key, chunk);
     set({ chunks: newChunks });
+  },
+
+  setParkourChunk: (position, chunk) => {
+    const key = chunkPositionToKey(position);
+    const newParkourChunks = new Map(get().parkourChunks);
+    newParkourChunks.set(key, chunk);
+    set({ parkourChunks: newParkourChunks });
+  },
+
+  clearParkourChunks: () => {
+    set({ parkourChunks: new Map() });
   },
   
   markChunkDirty: (position) => {
@@ -683,7 +698,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   resetMissile: () => {
     set({
       missileState: 'idle',
-      missilePosition: [5, 39, 0],
+      missilePosition: [5, 42, 0],
       missileTarget: [25, 37, 20],
     });
   },
@@ -743,6 +758,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: INITIAL_INVENTORY,
       hotbarSelection: 0,
       chunks: new Map(),
+      parkourChunks: new Map(),
       teleporters: [],
       isPlaying: false,
       isPaused: false,
@@ -758,7 +774,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       sandstorm: INITIAL_SANDSTORM,
       zombies: [],
       missileState: 'idle',
-      missilePosition: [5, 39, 0],
+      missilePosition: [5, 42, 0],
       missileTarget: [25, 37, 20],
     });
   },

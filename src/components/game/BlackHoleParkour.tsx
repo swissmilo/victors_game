@@ -115,7 +115,8 @@ export function BlackHoleParkour() {
   const respawnAtCheckpoint = useGameStore((state) => state.respawnAtParkourCheckpoint);
   const setParkourLevel = useGameStore((state) => state.setParkourLevel);
   const exitParkour = useGameStore((state) => state.exitBlackHoleParkour);
-  const setChunk = useGameStore((state) => state.setChunk);
+  const setParkourChunk = useGameStore((state) => state.setParkourChunk);
+  const clearParkourChunks = useGameStore((state) => state.clearParkourChunks);
 
   // Check for falls and level completion
   useFrame(() => {
@@ -148,69 +149,24 @@ export function BlackHoleParkour() {
     }
   });
 
-  // Track ALL parkour chunk keys across all levels and save original chunks
-  const allParkourChunkKeysRef = useRef<Set<string>>(new Set());
-  const savedChunksRef = useRef<Map<string, { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }>>(new Map());
-
-  // Generate platform chunks when entering parkour or changing levels
+  // Generate parkour chunks when entering parkour or changing levels
   useEffect(() => {
     if (!isInParkour) {
-      // Exiting parkour - restore ALL original chunks from all levels
-      const keysToRestore = Array.from(allParkourChunkKeysRef.current);
-      keysToRestore.forEach((key) => {
-        const savedChunk = savedChunksRef.current.get(key);
-        if (savedChunk) {
-          // Restore the original chunk
-          setChunk(savedChunk.position, {
-            ...savedChunk,
-            isDirty: true, // Mark dirty to trigger re-render
-          });
-        } else {
-          // If there was no original chunk, remove it from the store
-          const currentChunks = useGameStore.getState().chunks;
-          const chunkToRemove = currentChunks.get(key);
-          if (chunkToRemove) {
-            // Mark chunk for unloading by creating empty chunk
-            const emptyChunk = {
-              data: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-              position: chunkToRemove.position,
-              isDirty: true,
-            };
-            setChunk(chunkToRemove.position, emptyChunk);
-          }
-        }
-      });
-      allParkourChunkKeysRef.current.clear();
-      savedChunksRef.current.clear();
+      // Exiting parkour - simply clear all parkour chunks
+      clearParkourChunks();
       return;
     }
 
+    // Create platform chunks for current level
     const platforms = parkourLevel === 1 ? LEVEL_1_PLATFORMS : LEVEL_2_PLATFORMS;
     const platformChunks = createPlatformBlocks(platforms);
 
-    // Save existing chunks before overwriting
-    const currentChunks = useGameStore.getState().chunks;
-    platformChunks.forEach((chunk, key) => {
-      // Save original chunk if it exists and we haven't saved it yet
-      if (!savedChunksRef.current.has(key)) {
-        const existingChunk = currentChunks.get(key);
-        if (existingChunk) {
-          // Deep copy the chunk data
-          savedChunksRef.current.set(key, {
-            data: new Uint8Array(existingChunk.data),
-            position: existingChunk.position,
-            isDirty: existingChunk.isDirty,
-          });
-        }
-      }
+    // Clear and set parkour chunks (completely separate from main world)
+    clearParkourChunks();
+    platformChunks.forEach((chunk) => {
+      setParkourChunk(chunk.position, chunk);
     });
-
-    // Set all platform chunks in the store and track them (accumulate across levels)
-    platformChunks.forEach((chunk, key) => {
-      setChunk(chunk.position, chunk);
-      allParkourChunkKeysRef.current.add(key); // Add to the cumulative set
-    });
-  }, [isInParkour, parkourLevel, setChunk]);
+  }, [isInParkour, parkourLevel, setParkourChunk, clearParkourChunks]);
 
   if (!isInParkour) return null;
 

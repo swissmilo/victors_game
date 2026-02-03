@@ -53,7 +53,13 @@ function generateSpiralChunks(centerX: number, centerZ: number, radius: number):
 
 export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
   const playerPosition = useGameStore((state) => state.playerPosition);
-  const chunks = useGameStore((state) => state.chunks);
+  const isInParkour = useGameStore((state) => state.isInBlackHoleParkour);
+  const worldChunks = useGameStore((state) => state.chunks);
+  const parkourChunks = useGameStore((state) => state.parkourChunks);
+
+  // Use parkour chunks when in parkour mode, otherwise use world chunks
+  const chunks = isInParkour ? parkourChunks : worldChunks;
+
   const setChunk = useGameStore((state) => state.setChunk);
   const getChunk = useGameStore((state) => state.getChunk);
   const unloadDistantChunks = useGameStore((state) => state.unloadDistantChunks);
@@ -71,8 +77,14 @@ export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
     return generateSpiralChunks(playerChunkX, playerChunkZ, renderDistance);
   }, [playerChunkX, playerChunkZ, renderDistance]);
   
-  // Generate chunks incrementally to avoid frame drops
+  // Generate chunks incrementally to avoid frame drops (skip when in parkour)
   useEffect(() => {
+    // Don't generate world chunks when in parkour mode
+    if (isInParkour) {
+      pendingChunksRef.current = [];
+      return;
+    }
+
     // Find chunks that need to be generated
     const chunksToGenerate: ChunkPosition[] = [];
     for (const pos of chunksToLoad) {
@@ -81,19 +93,19 @@ export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
         chunksToGenerate.push(pos);
       }
     }
-    
+
     // Update pending queue (prioritize by distance)
     pendingChunksRef.current = chunksToGenerate;
-    
+
     // Process chunks incrementally
     const processChunks = () => {
       if (isGeneratingRef.current || pendingChunksRef.current.length === 0) return;
-      
+
       isGeneratingRef.current = true;
-      
+
       // Generate a few chunks per frame
       const toProcess = pendingChunksRef.current.splice(0, MAX_CHUNKS_PER_FRAME);
-      
+
       for (const pos of toProcess) {
         // Double-check it still needs generating
         if (!getChunk(pos)) {
@@ -105,22 +117,24 @@ export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
           });
         }
       }
-      
+
       isGeneratingRef.current = false;
-      
+
       // Schedule next batch if more pending
       if (pendingChunksRef.current.length > 0) {
         requestAnimationFrame(processChunks);
       }
     };
-    
+
     requestAnimationFrame(processChunks);
-  }, [chunksToLoad, getChunk, setChunk]);
+  }, [chunksToLoad, getChunk, setChunk, isInParkour]);
   
-  // Unload distant chunks to free memory
+  // Unload distant chunks to free memory (skip when in parkour)
   useEffect(() => {
-    unloadDistantChunks(playerChunkX, playerChunkZ, unloadDistance);
-  }, [playerChunkX, playerChunkZ, unloadDistance, unloadDistantChunks]);
+    if (!isInParkour) {
+      unloadDistantChunks(playerChunkX, playerChunkZ, unloadDistance);
+    }
+  }, [playerChunkX, playerChunkZ, unloadDistance, unloadDistantChunks, isInParkour]);
   
   // Get list of chunks to render (only within render distance)
   const chunksToRender = useMemo(() => {

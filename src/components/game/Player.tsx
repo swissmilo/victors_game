@@ -37,7 +37,13 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   const setHotbarSelection = useGameStore((state) => state.setHotbarSelection);
   const isFlying = useGameStore((state) => state.isFlying);
   const setIsFlying = useGameStore((state) => state.setIsFlying);
-  const chunks = useGameStore((state) => state.chunks);
+  const isInParkour = useGameStore((state) => state.isInBlackHoleParkour);
+  const worldChunks = useGameStore((state) => state.chunks);
+  const parkourChunks = useGameStore((state) => state.parkourChunks);
+
+  // Use parkour chunks when in parkour mode, otherwise use world chunks
+  const chunks = isInParkour ? parkourChunks : worldChunks;
+
   const teleporters = useGameStore((state) => state.teleporters);
   const blackHole = useGameStore((state) => state.blackHole);
   const hurricane = useGameStore((state) => state.hurricane);
