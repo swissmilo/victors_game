@@ -683,9 +683,9 @@ function generateNetherPortal(
   placeBlock(baseX + portalWidth, baseY + 1, baseZ, BlockType.OBSIDIAN);
 }
 
-// Missile site location (near haunted house)
-export const MISSILE_SITE_X = 15;
-export const MISSILE_SITE_Z = 10;
+// Missile site location (twice as far from haunted house)
+export const MISSILE_SITE_X = 5;
+export const MISSILE_SITE_Z = 0;
 export const MISSILE_SITE_Y = 30; // Ground level for launch pad
 
 /**

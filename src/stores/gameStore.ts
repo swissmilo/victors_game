@@ -385,8 +385,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   parkourLevel: 1,
   parkourCheckpoint: [0, 43, 0], // Spawn above start platform
   missileState: 'idle',
-  missilePosition: [15, 37, 10], // Near haunted house, above launch pad
-  missileTarget: [25, 37, 20], // Haunted house center
+  missilePosition: [5, 39, 0], // Twice as far from haunted house (sits on platform)
+  missileTarget: [25, 37, 20], // Haunted house center (will have randomness)
 
   // Actions
   setPlayerPosition: (position) => set({ playerPosition: position }),
@@ -667,7 +667,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Nuclear Missile actions
   launchMissile: () => {
-    set({ missileState: 'launching' });
+    // Add randomness to target (±5 blocks in X and Z around haunted house)
+    const randomX = 25 + (Math.random() * 10 - 5);
+    const randomZ = 20 + (Math.random() * 10 - 5);
+    set({
+      missileState: 'launching',
+      missileTarget: [randomX, 37, randomZ],
+    });
   },
 
   updateMissilePosition: (position) => {
@@ -677,7 +683,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   resetMissile: () => {
     set({
       missileState: 'idle',
-      missilePosition: [15, 37, 10],
+      missilePosition: [5, 39, 0],
       missileTarget: [25, 37, 20],
     });
   },
@@ -752,7 +758,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       sandstorm: INITIAL_SANDSTORM,
       zombies: [],
       missileState: 'idle',
-      missilePosition: [15, 37, 10],
+      missilePosition: [5, 39, 0],
       missileTarget: [25, 37, 20],
     });
   },

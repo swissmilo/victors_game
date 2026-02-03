@@ -10,8 +10,16 @@ import { CHUNK_SIZE, CHUNK_HEIGHT, getBlockFromChunk, chunkPositionToKey, BlockT
 const ZOMBIE_COUNT = 12;
 const ZOMBIE_SPEED = 1.5; // Blocks per second
 const ZOMBIE_WANDER_INTERVAL = 3; // Seconds between direction changes
-const ZOMBIE_SPAWN_RADIUS = 30; // Spawn radius around mansion
-const MANSION_CENTER = { x: 45, z: 32 }; // Center of mansion area
+const ZOMBIE_SPAWN_RADIUS = 35; // Spawn radius around mansion
+const SPAWN_CENTER = { x: 45, z: 32 }; // Spawn center (around haunted house)
+
+// Mansion bounds (from worldGen.ts: origin at 25,20, size 40x24)
+const MANSION_BOUNDS = {
+  minX: 25 - 5, // Add buffer zone
+  maxX: 25 + 40 + 5,
+  minZ: 20 - 5,
+  maxZ: 20 + 24 + 5,
+};
 
 // Scale factor - zombies are 4x normal size
 const SCALE = 4;
@@ -74,16 +82,30 @@ function seededRandom(seed: number): () => number {
   };
 }
 
+// Check if position is inside mansion bounds
+function isInsideMansion(x: number, z: number): boolean {
+  return x >= MANSION_BOUNDS.minX && x <= MANSION_BOUNDS.maxX &&
+         z >= MANSION_BOUNDS.minZ && z <= MANSION_BOUNDS.maxZ;
+}
+
 // Generate initial zombie data
 function generateInitialZombies(): ZombieData[] {
   const zombies: ZombieData[] = [];
   const random = seededRandom(12345);
 
   for (let i = 0; i < ZOMBIE_COUNT; i++) {
-    const angle = random() * Math.PI * 2;
-    const radius = 5 + random() * ZOMBIE_SPAWN_RADIUS;
-    const x = MANSION_CENTER.x + Math.cos(angle) * radius;
-    const z = MANSION_CENTER.z + Math.sin(angle) * radius;
+    let x: number, z: number;
+    let attempts = 0;
+
+    // Keep trying until we find a position outside the mansion
+    do {
+      const angle = random() * Math.PI * 2;
+      const radius = 5 + random() * ZOMBIE_SPAWN_RADIUS;
+      x = SPAWN_CENTER.x + Math.cos(angle) * radius;
+      z = SPAWN_CENTER.z + Math.sin(angle) * radius;
+      attempts++;
+    } while (isInsideMansion(x, z) && attempts < 10);
+
     const dirAngle = random() * Math.PI * 2;
 
     zombies.push({
@@ -370,7 +392,19 @@ export function ZombieSystem() {
       let wanderTimer = zombie.wanderTimer - delta;
       let targetDirection = [...zombie.targetDirection] as [number, number, number];
       if (wanderTimer <= 0) {
-        const angle = Math.random() * Math.PI * 2;
+        // Pick a new random direction, but avoid mansion area
+        let attempts = 0;
+        let angle: number;
+        let testX: number, testZ: number;
+
+        do {
+          angle = Math.random() * Math.PI * 2;
+          const testDistance = 5; // Look ahead 5 blocks
+          testX = zombie.position[0] + Math.cos(angle) * testDistance;
+          testZ = zombie.position[2] + Math.sin(angle) * testDistance;
+          attempts++;
+        } while (isInsideMansion(testX, testZ) && attempts < 8);
+
         targetDirection = [Math.cos(angle), 0, Math.sin(angle)];
         wanderTimer = ZOMBIE_WANDER_INTERVAL * (0.5 + Math.random());
       }
@@ -379,6 +413,14 @@ export function ZombieSystem() {
       const moveSpeed = ZOMBIE_SPEED * delta;
       let newX = zombie.position[0] + targetDirection[0] * moveSpeed;
       let newZ = zombie.position[2] + targetDirection[2] * moveSpeed;
+
+      // If moving into mansion area, reverse direction
+      if (isInsideMansion(newX, newZ)) {
+        targetDirection = [-targetDirection[0], 0, -targetDirection[2]];
+        newX = zombie.position[0] + targetDirection[0] * moveSpeed;
+        newZ = zombie.position[2] + targetDirection[2] * moveSpeed;
+        wanderTimer = ZOMBIE_WANDER_INTERVAL;
+      }
 
       // Check collision with player (radius-based)
       const dx = newX - playerPos[0];
@@ -422,17 +464,44 @@ export function ZombieSystem() {
         }
       }
 
-      // If collision, don't move and pick new direction
+      // If collision, don't move and pick new direction (but only if wander timer is low to prevent rapid spinning)
       if (hasCollision) {
         newX = zombie.position[0];
         newZ = zombie.position[2];
-        const angle = Math.random() * Math.PI * 2;
-        targetDirection = [Math.cos(angle), 0, Math.sin(angle)];
-        wanderTimer = ZOMBIE_WANDER_INTERVAL * (0.5 + Math.random());
+
+        // Only change direction if enough time has passed (prevents rapid spinning)
+        if (wanderTimer < 0.5) {
+          // Try to pick a direction away from the obstacle
+          let angle: number;
+          let attempts = 0;
+
+          do {
+            angle = Math.random() * Math.PI * 2;
+            const testX = newX + Math.cos(angle) * 2;
+            const testZ = newZ + Math.sin(angle) * 2;
+
+            // Check if this direction is clear
+            const testGroundY = findGroundLevel(testX, testZ);
+            const testY = testGroundY + feetOffset;
+            const isClear = !isSolidAt(testX, testY, testZ) && !isSolidAt(testX, testY + 1, testZ);
+
+            if (isClear) break;
+            attempts++;
+          } while (attempts < 4);
+
+          targetDirection = [Math.cos(angle), 0, Math.sin(angle)];
+          wanderTimer = ZOMBIE_WANDER_INTERVAL; // Full interval to prevent rapid changes
+        }
       }
 
-      // Update rotation to face movement direction
-      const rotation = Math.atan2(targetDirection[0], targetDirection[2]);
+      // Update rotation to face movement direction (smooth rotation to prevent snapping)
+      const targetRotation = Math.atan2(targetDirection[0], targetDirection[2]);
+      let rotation = zombie.rotation;
+
+      // Smooth rotation interpolation
+      const rotationDiff = targetRotation - rotation;
+      const rotationDiffNormalized = Math.atan2(Math.sin(rotationDiff), Math.cos(rotationDiff));
+      rotation += rotationDiffNormalized * Math.min(delta * 3, 1); // Smooth rotation over time
 
       return {
         ...zombie,

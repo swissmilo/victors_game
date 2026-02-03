@@ -23,17 +23,26 @@ export function NuclearMissileSystem() {
   const chunks = useGameStore((state) => state.chunks);
 
   const timeRef = useRef(0);
-  const initialPosition = useRef<[number, number, number]>([15, 30, 10]);
+  const initialPosition = useRef<[number, number, number]>([5, 39, 0]);
   const explosionParticles = useRef<THREE.Points | null>(null);
   const fireworksRef = useRef<Array<{ position: THREE.Vector3; velocity: THREE.Vector3; life: number }>>([]);
+  const hasExploded = useRef(false); // Prevent multiple explosions
+  const isResetting = useRef(false); // Prevent launch during reset
 
   // Store initial position only when first launching (not when transitioning to flying)
   const previousState = useRef<typeof missileState>('idle');
   useEffect(() => {
-    if (missileState === 'launching' && previousState.current === 'idle') {
+    if (missileState === 'launching' && previousState.current === 'idle' && !isResetting.current) {
       initialPosition.current = [...missilePosition];
       timeRef.current = 0;
+      hasExploded.current = false; // Reset explosion flag for new launch
+      isResetting.current = false;
     }
+
+    if (missileState === 'idle' && previousState.current === 'exploded') {
+      isResetting.current = false; // Reset complete
+    }
+
     previousState.current = missileState;
   }, [missileState, missilePosition]);
 
@@ -72,15 +81,16 @@ export function NuclearMissileSystem() {
 
         updateMissilePosition([x, y, z]);
 
-        // Explode on impact
-        if (progress >= 1) {
+        // Explode on impact (only once)
+        if (progress >= 1 && !hasExploded.current) {
+          hasExploded.current = true;
           explode();
         }
       }
     }
 
-    // Update fireworks
-    if (missileState === 'exploded' && fireworksRef.current.length > 0) {
+    // Update fireworks and handle reset
+    if (missileState === 'exploded') {
       fireworksRef.current = fireworksRef.current
         .map((fw) => ({
           ...fw,
@@ -90,8 +100,9 @@ export function NuclearMissileSystem() {
         }))
         .filter((fw) => fw.life > 0);
 
-      // Reset after 5 seconds
-      if (timeRef.current > 5) {
+      // Reset after 3 seconds (faster reload)
+      if (timeRef.current > 3) {
+        isResetting.current = true; // Mark as resetting
         resetMissile();
         fireworksRef.current = [];
         timeRef.current = 0;
@@ -246,14 +257,20 @@ export function NuclearMissileSystem() {
     }
 
     // Calculate rotation to face direction of travel
-    const rotation = new THREE.Euler(
-      -Math.atan2(velocity.y, Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)),
-      Math.atan2(velocity.x, velocity.z),
-      0
-    );
+    // First, create a quaternion that rotates the missile from pointing up to pointing forward
+    const baseRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+
+    // Then calculate the rotation to face the velocity direction
+    const pitch = -Math.atan2(velocity.y, Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z));
+    const yaw = Math.atan2(velocity.x, velocity.z);
+    const targetRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0));
+
+    // Combine the rotations
+    const finalRotation = new THREE.Quaternion().multiplyQuaternions(targetRotation, baseRotation);
+    const finalEuler = new THREE.Euler().setFromQuaternion(finalRotation);
 
     return (
-      <group position={missilePosition} rotation={rotation}>
+      <group position={missilePosition} rotation={finalEuler}>
         <primitive object={missileGeometry.clone()} />
         <pointLight color="#ff6600" intensity={5} distance={20} />
 
