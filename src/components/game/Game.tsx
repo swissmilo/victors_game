@@ -12,7 +12,7 @@ import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
 import { ZombieTargetIndicator } from '../ui/ZombieTargetIndicator';
 import { ParkourIndicator } from '../ui/ParkourIndicator';
-import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN } from '@/stores';
+import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN } from '@/stores';
 
 // Detect if running on touch device
 const isTouchDevice = () => {
@@ -44,6 +44,7 @@ export function Game() {
   const hurricane = useGameStore((state) => state.hurricane);
   const meteorShower = useGameStore((state) => state.meteorShower);
   const sandstorm = useGameStore((state) => state.sandstorm);
+  const godzilla = useGameStore((state) => state.godzilla);
   const currentCatastrophe = useGameStore((state) => state.currentCatastrophe);
   const isInBlackHoleParkour = useGameStore((state) => state.isInBlackHoleParkour);
   const switchToNextCatastrophe = useGameStore((state) => state.switchToNextCatastrophe);
@@ -55,6 +56,7 @@ export function Game() {
   const updateHurricane = useGameStore((state) => state.updateHurricane);
   const updateMeteorShower = useGameStore((state) => state.updateMeteorShower);
   const updateSandstorm = useGameStore((state) => state.updateSandstorm);
+  const updateGodzilla = useGameStore((state) => state.updateGodzilla);
   const isPlaying = useGameStore((state) => state.isPlaying);
 
   // Check if current catastrophe is in countdown phase (only then can we skip)
@@ -67,6 +69,7 @@ export function Game() {
       case 'hurricane': return hurricane.phase === 'countdown';
       case 'meteor_shower': return meteorShower.phase === 'countdown';
       case 'sandstorm': return sandstorm.phase === 'countdown';
+      case 'godzilla': return godzilla.phase === 'countdown';
       default: return false;
     }
   })();
@@ -187,13 +190,16 @@ export function Game() {
           case 'sandstorm':
             updateSandstorm({ phase: 'countdown', countdown: SANDSTORM_COUNTDOWN, intensity: 0, sandPlaced: 0 });
             break;
+          case 'godzilla':
+            updateGodzilla({ phase: 'countdown', countdown: GODZILLA_COUNTDOWN, intensity: 0, mouthRayActive: false, hasDestroyedBlocks: false });
+            break;
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameStarted, isPlaying, isInCountdown, nextCatastrophe, switchToNextCatastrophe, updateEarthquake, updateBlackHole, updateTsunami, updateBloodRain, updateHurricane, updateMeteorShower, updateSandstorm]);
+  }, [gameStarted, isPlaying, isInCountdown, nextCatastrophe, switchToNextCatastrophe, updateEarthquake, updateBlackHole, updateTsunami, updateBloodRain, updateHurricane, updateMeteorShower, updateSandstorm, updateGodzilla]);
 
   return (
     <div 

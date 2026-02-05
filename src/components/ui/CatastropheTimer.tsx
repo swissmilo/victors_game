@@ -11,7 +11,8 @@ export function CatastropheTimer() {
   const hurricane = useGameStore((state) => state.hurricane);
   const meteorShower = useGameStore((state) => state.meteorShower);
   const sandstorm = useGameStore((state) => state.sandstorm);
-  
+  const godzilla = useGameStore((state) => state.godzilla);
+
   // Get current countdown and phase based on active catastrophe
   const getDisplayInfo = () => {
     if (currentCatastrophe === 'earthquake') {
@@ -328,7 +329,7 @@ export function CatastropheTimer() {
             progressColor: 'bg-orange-400',
           };
       }
-    } else {
+    } else if (currentCatastrophe === 'sandstorm') {
       // Sandstorm
       const { phase, countdown, intensity, sandPlaced } = sandstorm;
       const intensityPercent = Math.round(intensity * 100);
@@ -379,9 +380,60 @@ export function CatastropheTimer() {
             progressColor: 'bg-yellow-400',
           };
       }
+    } else {
+      // Godzilla
+      const { phase, countdown, intensity } = godzilla;
+      const intensityPercent = Math.round(intensity * 100);
+
+      switch (phase) {
+        case 'countdown':
+          return {
+            title: 'Next: GODZILLA',
+            countdown,
+            color: 'text-green-400',
+            bgColor: 'bg-green-900/50',
+            showProgress: false,
+            progress: 0,
+            progressLabel: '',
+            progressColor: 'bg-green-500',
+          };
+        case 'emerging':
+          return {
+            title: 'GODZILLA RISING!',
+            countdown: 0,
+            color: 'text-green-500',
+            bgColor: 'bg-green-900/60',
+            showProgress: true,
+            progress: intensityPercent,
+            progressLabel: 'The King emerges...',
+            progressColor: 'bg-green-600',
+          };
+        case 'roaming':
+          return {
+            title: 'GODZILLA ATTACK!',
+            countdown: 0,
+            color: 'text-red-600',
+            bgColor: 'bg-slate-900/80',
+            showProgress: true,
+            progress: 100,
+            progressLabel: 'Destruction imminent!',
+            progressColor: 'bg-red-700',
+          };
+        case 'departing':
+          return {
+            title: 'Godzilla Retreating',
+            countdown: 0,
+            color: 'text-green-300',
+            bgColor: 'bg-green-900/40',
+            showProgress: true,
+            progress: 100 - intensityPercent,
+            progressLabel: 'Descending into the depths...',
+            progressColor: 'bg-green-400',
+          };
+      }
     }
   };
-  
+
   const info = getDisplayInfo();
   
   // Format countdown as MM:SS

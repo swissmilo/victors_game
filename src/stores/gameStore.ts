@@ -8,10 +8,10 @@ interface InventorySlot {
 }
 
 // Catastrophe types
-export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain' | 'hurricane' | 'meteor_shower' | 'sandstorm';
+export type CatastropheType = 'earthquake' | 'black_hole' | 'tsunami' | 'blood_rain' | 'hurricane' | 'meteor_shower' | 'sandstorm' | 'godzilla';
 
 // Catastrophe sequence - order in which they occur
-const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain', 'hurricane', 'meteor_shower', 'sandstorm'];
+const CATASTROPHE_SEQUENCE: CatastropheType[] = ['earthquake', 'black_hole', 'tsunami', 'blood_rain', 'hurricane', 'meteor_shower', 'sandstorm', 'godzilla'];
 
 // Get a random starting point in the catastrophe sequence
 function getRandomCatastropheStart(): { current: CatastropheType; next: CatastropheType } {
@@ -101,6 +101,23 @@ interface SandstormState {
   sandPlaced: number;         // Count of sand blocks placed this cycle
 }
 
+// Godzilla phases
+export type GodzillaPhase = 'countdown' | 'emerging' | 'roaming' | 'departing';
+
+interface GodzillaState {
+  phase: GodzillaPhase;
+  countdown: number;          // Seconds until Godzilla arrives
+  position: [number, number, number];  // Current world position
+  rotation: number;           // Y-axis rotation (facing direction)
+  intensity: number;          // 0-1, controls size scaling during emerge/depart
+  targetPosition: [number, number, number]; // Where Godzilla is walking toward
+  walkTimer: number;          // Time until next direction change
+  mouthRayActive: boolean;    // Whether ray is currently firing
+  mouthRayTimer: number;      // Countdown until next ray blast
+  mouthRayPosition: [number, number, number]; // Ray beam endpoint
+  hasDestroyedBlocks: boolean; // Whether destruction has occurred this cycle
+}
+
 // Teleporter position
 export interface TeleporterPosition {
   x: number;
@@ -170,6 +187,9 @@ interface GameState {
   // Sandstorm state
   sandstorm: SandstormState;
 
+  // Godzilla state
+  godzilla: GodzillaState;
+
   // Zombie state
   zombies: ZombieData[];
   targetedZombieId: number | null; // ID of zombie being targeted by crosshair
@@ -237,6 +257,10 @@ interface GameState {
   updateSandstorm: (updates: Partial<SandstormState>) => void;
   resetSandstorm: () => void;
 
+  // Godzilla actions
+  updateGodzilla: (updates: Partial<GodzillaState>) => void;
+  resetGodzilla: () => void;
+
   // Zombie actions
   initializeZombies: (zombies: ZombieData[]) => void;
   updateZombies: (zombies: ZombieData[]) => void;
@@ -300,6 +324,10 @@ const METEOR_SHOWER_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 // Sandstorm configuration
 const SANDSTORM_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 
+// Godzilla configuration
+const GODZILLA_COUNTDOWN = CATASTROPHE_COUNTDOWN;
+const GODZILLA_HEIGHT = 84;  // Twice the mansion height (42 blocks)
+
 const INITIAL_EARTHQUAKE: EarthquakeState = {
   phase: 'countdown',
   countdown: EARTHQUAKE_COUNTDOWN,
@@ -357,6 +385,20 @@ const INITIAL_SANDSTORM: SandstormState = {
   sandPlaced: 0,
 };
 
+const INITIAL_GODZILLA: GodzillaState = {
+  phase: 'countdown',
+  countdown: GODZILLA_COUNTDOWN,
+  position: [0, 0, 0],
+  rotation: 0,
+  intensity: 0,
+  targetPosition: [0, 0, 0],
+  walkTimer: 0,
+  mouthRayActive: false,
+  mouthRayTimer: 0,
+  mouthRayPosition: [0, 0, 0],
+  hasDestroyedBlocks: false,
+};
+
 // Get random starting catastrophe for initial state
 const initialCatastrophe = getRandomCatastropheStart();
 
@@ -383,6 +425,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hurricane: INITIAL_HURRICANE,
   meteorShower: INITIAL_METEOR_SHOWER,
   sandstorm: INITIAL_SANDSTORM,
+  godzilla: INITIAL_GODZILLA,
   zombies: [],
   targetedZombieId: null,
   isInBlackHoleParkour: false,
@@ -602,6 +645,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     sandstorm: INITIAL_SANDSTORM,
   }),
 
+  updateGodzilla: (updates) => set((state) => ({
+    godzilla: { ...state.godzilla, ...updates },
+  })),
+
+  resetGodzilla: () => set({
+    godzilla: INITIAL_GODZILLA,
+  }),
+
   initializeZombies: (zombies) => set({ zombies }),
 
   updateZombies: (zombies) => set({ zombies }),
@@ -739,6 +790,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
+      godzilla: INITIAL_GODZILLA,
       zombies: saveData.zombies || [], // Load saved zombies or empty array
     });
 
@@ -772,6 +824,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hurricane: INITIAL_HURRICANE,
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
+      godzilla: INITIAL_GODZILLA,
       zombies: [],
       missileState: 'idle',
       missilePosition: [5, 42, 0],
@@ -781,4 +834,4 @@ export const useGameStore = create<GameState>((set, get) => ({
 }));
 
 // Export catastrophe constants for use in components
-export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN };
+export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN, GODZILLA_HEIGHT };

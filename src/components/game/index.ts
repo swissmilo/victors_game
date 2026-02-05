@@ -9,5 +9,6 @@ export { TsunamiSystem } from './TsunamiSystem';
 export { HurricaneSystem } from './HurricaneSystem';
 export { MeteorShowerSystem } from './MeteorShowerSystem';
 export { SandstormSystem } from './SandstormSystem';
+export { GodzillaSystem } from './GodzillaSystem';
 export { ZombieSystem } from './ZombieSystem';
 export { BlackHoleParkour } from './BlackHoleParkour';
