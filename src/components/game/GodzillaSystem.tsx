@@ -32,6 +32,15 @@ const CHUNKS_PER_FRAME = 2;     // Incremental destruction rate
 // Godzilla proportions
 const BODY_SCALE = 1;           // Scale factor for whole model
 
+// Siren Head constants
+const SIRENHEAD_SPAWN_DELAY = 8;    // Seconds after first blast to spawn
+const SIRENHEAD_EMERGE_DURATION = 4; // Seconds to rise from hole
+const SIRENHEAD_WALK_SPEED = 2.5;    // Blocks per second (slightly slower than Godzilla)
+const ARM_SWING_SPEED = 8;           // Radians per second (faster during combat)
+const COMBAT_APPROACH_DISTANCE = 15; // Distance to start fighting
+const COMBAT_SEPARATE_DISTANCE = 40; // Distance to retreat to
+const COMBAT_FIGHT_DURATION = 8;     // Seconds to fight before separating
+
 // Helper functions
 function normalize(v: [number, number, number]): [number, number, number] {
   const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
@@ -166,6 +175,135 @@ function buildGodzillaModel() {
   return group;
 }
 
+// Build Siren Head voxel model
+function buildSirenHeadModel() {
+  const group = new THREE.Group();
+
+  // Colors
+  const bodyColor = new THREE.Color(0x5a3a2a);      // Rusty brown
+  const darkColor = new THREE.Color(0x3a2a1a);      // Dark brown
+  const sirenColor = new THREE.Color(0xff4444);     // Red for sirens
+  const teethColor = new THREE.Color(0xdddddd);     // Light gray
+
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: bodyColor });
+  const darkMaterial = new THREE.MeshStandardMaterial({ color: darkColor });
+  const sirenMaterial = new THREE.MeshStandardMaterial({
+    color: sirenColor,
+    emissive: sirenColor,
+    emissiveIntensity: 0.6
+  });
+  const teethMaterial = new THREE.MeshStandardMaterial({ color: teethColor });
+
+  // Helper to create a box at position
+  const addBox = (
+    x: number,
+    y: number,
+    z: number,
+    width: number,
+    height: number,
+    depth: number,
+    material: THREE.Material
+  ) => {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    group.add(mesh);
+    return mesh;
+  };
+
+  // Very long, thin legs - skeletal appearance
+  // Left leg
+  addBox(-4, 20, 0, 3, 40, 3, bodyMaterial);     // Upper leg
+  addBox(-4, 2, 2, 2.5, 4, 5, bodyMaterial);     // Foot
+
+  // Right leg
+  addBox(4, 20, 0, 3, 40, 3, bodyMaterial);      // Upper leg
+  addBox(4, 2, 2, 2.5, 4, 5, bodyMaterial);      // Foot
+
+  // Narrow torso - skeletal
+  addBox(0, 50, 0, 8, 20, 6, bodyMaterial);
+
+  // Ribs - dark lines on torso
+  for (let i = 0; i < 5; i++) {
+    const ribY = 42 + i * 3;
+    addBox(-3, ribY, 3, 6, 0.5, 0.3, darkMaterial);  // Rib
+  }
+
+  // Very long, thin neck
+  addBox(0, 70, 0, 3, 12, 3, bodyMaterial);
+
+  // Top of neck connection point
+  const neckTop = 76;
+
+  // Left siren head (connected to neck)
+  // Box speaker shape
+  addBox(-5, neckTop + 4, 0, 6, 8, 6, darkMaterial);
+  // Speaker grille (red glowing grid)
+  addBox(-5, neckTop + 4, 3.5, 5, 6, 0.5, sirenMaterial);
+  // Teeth on speaker
+  for (let i = -2; i <= 2; i++) {
+    addBox(-5 + i * 1.2, neckTop + 2, 3.5, 0.3, 1.5, 0.3, teethMaterial);
+  }
+
+  // Right siren head (connected to neck)
+  // Box speaker shape
+  addBox(5, neckTop + 4, 0, 6, 8, 6, darkMaterial);
+  // Speaker grille (red glowing grid)
+  addBox(5, neckTop + 4, 3.5, 5, 6, 0.5, sirenMaterial);
+  // Teeth on speaker
+  for (let i = -2; i <= 2; i++) {
+    addBox(5 + i * 1.2, neckTop + 2, 3.5, 0.3, 1.5, 0.3, teethMaterial);
+  }
+
+  // Very long, thin arms - pivot from shoulder for animation
+  const leftArmGroup = new THREE.Group();
+  leftArmGroup.position.set(-8, 58, 0); // Shoulder position
+
+  // Create arm geometry in the group (extends downward from pivot)
+  const leftArmGeometry = new THREE.BoxGeometry(3, 30, 3);
+  const leftArmMesh = new THREE.Mesh(leftArmGeometry, bodyMaterial);
+  leftArmMesh.position.set(0, -15, 0); // Offset down from pivot
+  leftArmGroup.add(leftArmMesh);
+
+  // Left hand - elongated fingers
+  for (let i = 0; i < 4; i++) {
+    const fingerGeometry = new THREE.BoxGeometry(0.5, 6, 0.5);
+    const fingerMesh = new THREE.Mesh(fingerGeometry, bodyMaterial);
+    fingerMesh.position.set(i * 0.8 - 1.2, -30, 0);
+    leftArmGroup.add(fingerMesh);
+  }
+
+  group.add(leftArmGroup);
+
+  const rightArmGroup = new THREE.Group();
+  rightArmGroup.position.set(8, 58, 0); // Shoulder position
+
+  // Create arm geometry in the group (extends downward from pivot)
+  const rightArmGeometry = new THREE.BoxGeometry(3, 30, 3);
+  const rightArmMesh = new THREE.Mesh(rightArmGeometry, bodyMaterial);
+  rightArmMesh.position.set(0, -15, 0); // Offset down from pivot
+  rightArmGroup.add(rightArmMesh);
+
+  // Right hand - elongated fingers
+  for (let i = 0; i < 4; i++) {
+    const fingerGeometry = new THREE.BoxGeometry(0.5, 6, 0.5);
+    const fingerMesh = new THREE.Mesh(fingerGeometry, bodyMaterial);
+    fingerMesh.position.set(i * 0.8 - 1.2, -30, 0);
+    rightArmGroup.add(fingerMesh);
+  }
+
+  group.add(rightArmGroup);
+
+  // Store arm references for animation
+  group.userData = {
+    leftArm: leftArmGroup,
+    rightArm: rightArmGroup,
+  };
+
+  group.position.y = 0;
+  return group;
+}
+
 // Find ground level at position
 function findGroundLevel(
   chunks: Map<string, { data: Uint8Array; position: { x: number; z: number } }>,
@@ -209,9 +347,24 @@ export function GodzillaSystem() {
   const phaseTimer = useRef(0);
   const chunksToProcess = useRef<string[]>([]);
   const bodyRef = useRef<THREE.Group>(null);
+  const sirenHeadRef = useRef<THREE.Group>(null);
 
-  // Pre-built Godzilla model
+  // Siren Head state
+  const sirenHeadState = useRef({
+    emerged: false,
+    spawnTimer: 0,
+    emergeProgress: 0,
+    position: [0, 0, 0] as [number, number, number],
+    rotation: 0,
+    armRotation: 0,
+    health: 100,
+    combatState: 'approaching' as 'approaching' | 'fighting' | 'separating',
+    fightTimer: 0,
+  });
+
+  // Pre-built models
   const godzillaModel = useMemo(() => buildGodzillaModel(), []);
+  const sirenHeadModel = useMemo(() => buildSirenHeadModel(), []);
 
   useFrame((_, delta) => {
     if (!isPlaying || currentCatastrophe !== 'godzilla') return;
@@ -327,14 +480,28 @@ export function GodzillaSystem() {
           newMouthRayActive = true;
           newMouthRayTimer = RAY_DURATION;
 
-          // Calculate target point in front of Godzilla
-          const rayDistance = RAY_DISTANCE_MIN + Math.random() * (RAY_DISTANCE_MAX - RAY_DISTANCE_MIN);
           const mouthHeight = GODZILLA_HEIGHT * 0.7; // Ray comes from head
-          newMouthRayPosition = [
-            newPosition[0] + Math.cos(newRotation) * rayDistance,
-            newPosition[1] + mouthHeight,
-            newPosition[2] + Math.sin(newRotation) * rayDistance,
-          ];
+
+          // 60% chance to target Siren Head if it exists, otherwise target terrain
+          if (sirenHeadState.current.emerged && sirenHeadState.current.health > 0 && Math.random() < 0.6) {
+            // Target Siren Head
+            newMouthRayPosition = [
+              sirenHeadState.current.position[0],
+              sirenHeadState.current.position[1] + GODZILLA_HEIGHT * 0.5, // Aim at torso
+              sirenHeadState.current.position[2],
+            ];
+
+            // Damage Siren Head
+            sirenHeadState.current.health = Math.max(0, sirenHeadState.current.health - 20);
+          } else {
+            // Target terrain
+            const rayDistance = RAY_DISTANCE_MIN + Math.random() * (RAY_DISTANCE_MAX - RAY_DISTANCE_MIN);
+            newMouthRayPosition = [
+              newPosition[0] + Math.cos(newRotation) * rayDistance,
+              newPosition[1] + mouthHeight,
+              newPosition[2] + Math.sin(newRotation) * rayDistance,
+            ];
+          }
 
           // Begin incremental block destruction
           newHasDestroyedBlocks = false;
@@ -362,6 +529,117 @@ export function GodzillaSystem() {
           if (newMouthRayTimer <= 0) {
             newMouthRayActive = false;
             newMouthRayTimer = RAY_COOLDOWN_MIN + Math.random() * (RAY_COOLDOWN_MAX - RAY_COOLDOWN_MIN);
+          }
+        }
+
+        // Siren Head spawn logic
+        if (!sirenHeadState.current.emerged) {
+          sirenHeadState.current.spawnTimer += delta;
+
+          // Spawn Siren Head after first blast creates holes
+          if (sirenHeadState.current.spawnTimer >= SIRENHEAD_SPAWN_DELAY) {
+            // Find a blast hole location (use last ray position as spawn point)
+            const spawnX = newMouthRayPosition[0] + (Math.random() - 0.5) * 10;
+            const spawnZ = newMouthRayPosition[2] + (Math.random() - 0.5) * 10;
+            const spawnY = findGroundLevel(chunks, spawnX, spawnZ);
+
+            sirenHeadState.current.position = [spawnX, spawnY, spawnZ];
+            sirenHeadState.current.emerged = true;
+            sirenHeadState.current.emergeProgress = 0;
+          }
+        } else if (sirenHeadState.current.health > 0) {
+          // Siren Head emergence animation
+          if (sirenHeadState.current.emergeProgress < 1) {
+            sirenHeadState.current.emergeProgress = Math.min(
+              1,
+              sirenHeadState.current.emergeProgress + delta / SIRENHEAD_EMERGE_DURATION
+            );
+          }
+
+          // Combat cycle: approach → fight → separate → repeat
+          const toGodzillaX = newPosition[0] - sirenHeadState.current.position[0];
+          const toGodzillaZ = newPosition[2] - sirenHeadState.current.position[2];
+          const distanceToGodzilla = Math.sqrt(toGodzillaX * toGodzillaX + toGodzillaZ * toGodzillaZ);
+
+          // Face Godzilla
+          sirenHeadState.current.rotation = Math.atan2(toGodzillaZ, toGodzillaX);
+
+          switch (sirenHeadState.current.combatState) {
+            case 'approaching': {
+              // Walk toward Godzilla
+              if (distanceToGodzilla > COMBAT_APPROACH_DISTANCE) {
+                const moveX = (toGodzillaX / distanceToGodzilla) * SIRENHEAD_WALK_SPEED * delta;
+                const moveZ = (toGodzillaZ / distanceToGodzilla) * SIRENHEAD_WALK_SPEED * delta;
+
+                sirenHeadState.current.position[0] += moveX;
+                sirenHeadState.current.position[2] += moveZ;
+                sirenHeadState.current.position[1] = findGroundLevel(
+                  chunks,
+                  sirenHeadState.current.position[0],
+                  sirenHeadState.current.position[2]
+                );
+              } else {
+                // Close enough - start fighting
+                sirenHeadState.current.combatState = 'fighting';
+                sirenHeadState.current.fightTimer = 0;
+              }
+              break;
+            }
+
+            case 'fighting': {
+              // Stay close and fight
+              sirenHeadState.current.fightTimer += delta;
+
+              // Swing arms rapidly during combat
+              sirenHeadState.current.armRotation += ARM_SWING_SPEED * delta;
+
+              // After fight duration, start separating
+              if (sirenHeadState.current.fightTimer >= COMBAT_FIGHT_DURATION) {
+                sirenHeadState.current.combatState = 'separating';
+              }
+              break;
+            }
+
+            case 'separating': {
+              // Walk away from Godzilla
+              if (distanceToGodzilla < COMBAT_SEPARATE_DISTANCE) {
+                const moveX = -(toGodzillaX / distanceToGodzilla) * SIRENHEAD_WALK_SPEED * delta;
+                const moveZ = -(toGodzillaZ / distanceToGodzilla) * SIRENHEAD_WALK_SPEED * delta;
+
+                sirenHeadState.current.position[0] += moveX;
+                sirenHeadState.current.position[2] += moveZ;
+                sirenHeadState.current.position[1] = findGroundLevel(
+                  chunks,
+                  sirenHeadState.current.position[0],
+                  sirenHeadState.current.position[2]
+                );
+              } else {
+                // Far enough - start approaching again
+                sirenHeadState.current.combatState = 'approaching';
+              }
+              break;
+            }
+          }
+
+          // Update arm rotations - only swing during fighting
+          if (sirenHeadRef.current) {
+            const sirenModel = sirenHeadRef.current.children[0] as THREE.Group;
+            if (sirenModel && sirenModel.userData) {
+              const leftArm = sirenModel.userData.leftArm as THREE.Group;
+              const rightArm = sirenModel.userData.rightArm as THREE.Group;
+
+              if (leftArm && rightArm) {
+                if (sirenHeadState.current.combatState === 'fighting') {
+                  // Rapid swinging during combat
+                  leftArm.rotation.z = Math.sin(sirenHeadState.current.armRotation) * 2.0;
+                  rightArm.rotation.z = Math.sin(sirenHeadState.current.armRotation + Math.PI) * 2.0;
+                } else {
+                  // Arms hang down when not fighting
+                  leftArm.rotation.z = 0;
+                  rightArm.rotation.z = 0;
+                }
+              }
+            }
           }
         }
 
@@ -400,6 +678,19 @@ export function GodzillaSystem() {
           updateEarthquake({ intensity: 0 });
           phaseTimer.current = 0;
 
+          // Reset Siren Head for next cycle
+          sirenHeadState.current = {
+            emerged: false,
+            spawnTimer: 0,
+            emergeProgress: 0,
+            position: [0, 0, 0],
+            rotation: 0,
+            armRotation: 0,
+            health: 100,
+            combatState: 'approaching',
+            fightTimer: 0,
+          };
+
           // Switch to next catastrophe (earthquake)
           switchToNextCatastrophe();
         }
@@ -433,6 +724,26 @@ export function GodzillaSystem() {
           start={[position[0], position[1] + GODZILLA_HEIGHT * 0.7 * intensity, position[2]]}
           end={mouthRayPosition}
         />
+      )}
+
+      {/* Siren Head model */}
+      {sirenHeadState.current.emerged && sirenHeadState.current.health > 0 && (
+        <group
+          ref={sirenHeadRef}
+          position={[
+            sirenHeadState.current.position[0],
+            sirenHeadState.current.position[1],
+            sirenHeadState.current.position[2],
+          ]}
+          rotation={[0, sirenHeadState.current.rotation, 0]}
+          scale={[
+            sirenHeadState.current.emergeProgress * BODY_SCALE,
+            sirenHeadState.current.emergeProgress * BODY_SCALE,
+            sirenHeadState.current.emergeProgress * BODY_SCALE,
+          ]}
+        >
+          <primitive object={sirenHeadModel} />
+        </group>
       )}
     </group>
   );

@@ -410,13 +410,13 @@ export function CatastropheTimer() {
           };
         case 'roaming':
           return {
-            title: 'GODZILLA ATTACK!',
+            title: 'KAIJU BATTLE!',
             countdown: 0,
             color: 'text-red-600',
             bgColor: 'bg-slate-900/80',
             showProgress: true,
             progress: 100,
-            progressLabel: 'Destruction imminent!',
+            progressLabel: 'Godzilla vs Siren Head!',
             progressColor: 'bg-red-700',
           };
         case 'departing':
