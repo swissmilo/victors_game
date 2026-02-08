@@ -6,8 +6,8 @@ import * as THREE from 'three';
 
 // Texture size (Minecraft textures are 16x16)
 const TEXTURE_SIZE = 16;
-const ATLAS_COLS = 4;  // Keep at 4 columns
-const ATLAS_ROWS = 5;  // 4x5 = 20 slots
+const ATLAS_COLS = 5;  // 5 columns
+const ATLAS_ROWS = 5;  // 5x5 = 25 slots
 const ATLAS_WIDTH = TEXTURE_SIZE * ATLAS_COLS;   // 64
 const ATLAS_HEIGHT = TEXTURE_SIZE * ATLAS_ROWS;  // 80
 
@@ -29,6 +29,16 @@ export const TEXTURE_INDICES = {
   OBSIDIAN: 12,
   PORTAL: 13,
   TELEPORTER: 14,
+  DEEPSLATE: 15,
+  TUFF: 16,
+  RED_WOOL: 17,
+  DARK_OAK: 18,
+  SNOW: 19,
+  ORANGE_GLASS: 20,
+  DRIPSTONE: 21,
+  BLACK_GLASS: 22,
+  MAGMA: 23,
+  ANDESITE: 24,
 } as const;
 
 const TEXTURE_PATHS: Record<number, string> = {
@@ -47,6 +57,16 @@ const TEXTURE_PATHS: Record<number, string> = {
   [TEXTURE_INDICES.OBSIDIAN]: '/textures/obsidian.png',
   [TEXTURE_INDICES.PORTAL]: '/textures/portal.png',
   [TEXTURE_INDICES.TELEPORTER]: '/textures/teleporter.png',
+  [TEXTURE_INDICES.DEEPSLATE]: '/textures/deepslate_bricks.png',
+  [TEXTURE_INDICES.TUFF]: '/textures/polished_tuff.png',
+  [TEXTURE_INDICES.RED_WOOL]: '/textures/red_wool.png',
+  [TEXTURE_INDICES.DARK_OAK]: '/textures/dark_oak_planks.png',
+  [TEXTURE_INDICES.SNOW]: '/textures/snow.png',
+  [TEXTURE_INDICES.ORANGE_GLASS]: '/textures/orange_stained_glass.png',
+  [TEXTURE_INDICES.DRIPSTONE]: '/textures/dripstone_block.png',
+  [TEXTURE_INDICES.BLACK_GLASS]: '/textures/black_stained_glass.png',
+  [TEXTURE_INDICES.MAGMA]: '/textures/magma.png',
+  [TEXTURE_INDICES.ANDESITE]: '/textures/andesite.png',
 };
 
 /**
@@ -315,6 +335,16 @@ function createFallbackAtlas(): HTMLCanvasElement {
     [TEXTURE_INDICES.OBSIDIAN]: '#1a0a2e',  // Dark purple/black
     [TEXTURE_INDICES.PORTAL]: '#8b00ff',  // Purple portal
     [TEXTURE_INDICES.TELEPORTER]: '#00e5e5',  // Cyan teleporter
+    [TEXTURE_INDICES.DEEPSLATE]: '#3a3a4a',   // Dark gray-blue stone
+    [TEXTURE_INDICES.TUFF]: '#6b6b60',        // Medium gray-brown
+    [TEXTURE_INDICES.RED_WOOL]: '#a02020',     // Red
+    [TEXTURE_INDICES.DARK_OAK]: '#3e2912',    // Dark brown wood
+    [TEXTURE_INDICES.SNOW]: '#f0f0f0',        // White
+    [TEXTURE_INDICES.ORANGE_GLASS]: '#d06010', // Orange translucent
+    [TEXTURE_INDICES.DRIPSTONE]: '#7a6b5a',   // Brownish stone
+    [TEXTURE_INDICES.BLACK_GLASS]: '#111111',  // Near black
+    [TEXTURE_INDICES.MAGMA]: '#c04010',        // Orange-red glow
+    [TEXTURE_INDICES.ANDESITE]: '#8a8a8a',     // Light gray
   };
   
   // Fill with magenta for empty slots

@@ -19,6 +19,7 @@
     "@react-three/fiber": "^9.5.0",
     "@react-three/rapier": "^2.2.0",
     "next": "16.1.6",
+    "prismarine-nbt": "^2.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "three": "^0.182.0",

@@ -118,7 +118,7 @@ describe('blockInteraction', () => {
       chunks.set('0,0', { data: chunkData, position: { x: 0, z: 0 } });
       
       const keyNegative = setBlockAtWorld(5, -1, 5, BlockType.STONE, chunks);
-      const keyTooHigh = setBlockAtWorld(5, 100, 5, BlockType.STONE, chunks);
+      const keyTooHigh = setBlockAtWorld(5, 300, 5, BlockType.STONE, chunks);
       
       expect(keyNegative).toBeNull();
       expect(keyTooHigh).toBeNull();

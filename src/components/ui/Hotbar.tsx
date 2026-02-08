@@ -19,6 +19,16 @@ const BLOCK_COLORS: Record<BlockType, string> = {
   [BlockType.OBSIDIAN]: '#1a0a2e',  // Dark purple/black
   [BlockType.PORTAL]: '#8b00ff',  // Purple portal
   [BlockType.TELEPORTER]: '#00e5e5',  // Cyan teleporter
+  [BlockType.DEEPSLATE]: '#3a3a4a',
+  [BlockType.TUFF]: '#6b6b60',
+  [BlockType.RED_WOOL]: '#a02020',
+  [BlockType.DARK_OAK]: '#3e2912',
+  [BlockType.SNOW]: '#f0f0f0',
+  [BlockType.ORANGE_GLASS]: '#d06010',
+  [BlockType.DRIPSTONE]: '#7a6b5a',
+  [BlockType.BLACK_GLASS]: '#111111',
+  [BlockType.MAGMA]: '#c04010',
+  [BlockType.ANDESITE_BLOCK]: '#8a8a8a',
 };
 
 // Viewport width below this = phone (single block + tap to cycle); >= = tablet (full hotbar)

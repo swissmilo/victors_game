@@ -10,11 +10,12 @@ import {
   createEmptyChunkData,
   setBlockInChunk,
 } from '@/types';
+import { CASTLE_WIDTH, CASTLE_HEIGHT, CASTLE_DEPTH, getCastleBlock } from './castleData';
 
 const SEA_LEVEL = 32;
 const BASE_HEIGHT = 25;
 const MIN_HEIGHT = 8;
-const MAX_HEIGHT = 58;
+const MAX_HEIGHT = 58; // Terrain max (structures can go higher with CHUNK_HEIGHT=256)
 
 // Cave parameters
 const CAVE_SCALE = 0.055;
@@ -1168,18 +1169,18 @@ export const SHIP_BBOX = {
 export const SHIP_WHEEL_OFFSET: [number, number, number] = [0, SHIP_DECK_Y - LAKE_WATER_LEVEL + 2, 15];
 
 
-// ===== MOUNTAIN + CASTLE =====
-const MOUNTAIN_ORIGIN = { x: 100, z: -40 };
-const MOUNTAIN_RADIUS = 35;
-const MOUNTAIN_PEAK_Y = 34;
-const MOUNTAIN_PEAK_RADIUS = 16; // Flat plateau radius for castle
+// ===== IMPORTED DARK FANTASY CASTLE =====
+// Castle origin: bottom-corner of the imported structure in world space
+// The castle is 97x151x104 blocks (width x height x depth)
+const CASTLE_ORIGIN = { x: 100, z: -90 };
+const CASTLE_BASE_Y = 10; // Y offset in world (structure starts at this Y)
 
-function chunkContainsMountainCastle(chunkWorldX: number, chunkWorldZ: number): boolean {
+function chunkContainsCastle(chunkWorldX: number, chunkWorldZ: number): boolean {
   const margin = CHUNK_SIZE;
-  const minX = MOUNTAIN_ORIGIN.x - MOUNTAIN_RADIUS - margin;
-  const maxX = MOUNTAIN_ORIGIN.x + MOUNTAIN_RADIUS + margin;
-  const minZ = MOUNTAIN_ORIGIN.z - MOUNTAIN_RADIUS - margin;
-  const maxZ = MOUNTAIN_ORIGIN.z + MOUNTAIN_RADIUS + margin;
+  const minX = CASTLE_ORIGIN.x - margin;
+  const maxX = CASTLE_ORIGIN.x + CASTLE_WIDTH + margin;
+  const minZ = CASTLE_ORIGIN.z - margin;
+  const maxZ = CASTLE_ORIGIN.z + CASTLE_DEPTH + margin;
 
   const chunkMaxX = chunkWorldX + CHUNK_SIZE;
   const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
@@ -1188,391 +1189,35 @@ function chunkContainsMountainCastle(chunkWorldX: number, chunkWorldZ: number): 
            chunkMaxZ < minZ || chunkWorldZ > maxZ);
 }
 
-function generateMountainCastleInChunk(chunk: ChunkData, chunkWorldX: number, chunkWorldZ: number): void {
-  const cx = MOUNTAIN_ORIGIN.x;
-  const cz = MOUNTAIN_ORIGIN.z;
-  const random = seededRandom(42424242);
-
-  const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
-    const localX = wx - chunkWorldX;
-    const localZ = wz - chunkWorldZ;
-    if (localX >= 0 && localX < CHUNK_SIZE &&
-        localZ >= 0 && localZ < CHUNK_SIZE &&
-        wy >= 0 && wy < CHUNK_HEIGHT) {
-      setBlockInChunk(chunk, localX, wy, localZ, block);
-    }
-  };
-
-  // ====== PHASE 1: Mountain terrain ======
+function generateCastleInChunk(chunk: ChunkData, chunkWorldX: number, chunkWorldZ: number): void {
+  // Place imported castle blocks that fall within this chunk
   for (let x = 0; x < CHUNK_SIZE; x++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
       const wx = chunkWorldX + x;
       const wz = chunkWorldZ + z;
-      const dx = wx - cx;
-      const dz = wz - cz;
-      const dist = Math.sqrt(dx * dx + dz * dz);
 
-      if (dist > MOUNTAIN_RADIUS + 3) continue;
+      // Convert world coords to castle-local coords
+      const castleX = wx - CASTLE_ORIGIN.x;
+      const castleZ = wz - CASTLE_ORIGIN.z;
 
-      let mountainHeight: number;
-
-      if (dist <= MOUNTAIN_PEAK_RADIUS) {
-        // Flat plateau for castle
-        mountainHeight = MOUNTAIN_PEAK_Y;
-      } else if (dist <= MOUNTAIN_RADIUS) {
-        // Smooth slope from peak down to low base
-        const slopeT = (dist - MOUNTAIN_PEAK_RADIUS) / (MOUNTAIN_RADIUS - MOUNTAIN_PEAK_RADIUS);
-        const smooth = slopeT * slopeT * (3 - 2 * slopeT); // smoothstep
-        const targetBase = 12;
-        mountainHeight = Math.floor(MOUNTAIN_PEAK_Y - smooth * (MOUNTAIN_PEAK_Y - targetBase));
-
-        // Add rocky noise for natural look
-        const rockNoise = fbm(wx * 0.3, wz * 0.3, 2, 0.5, 0.1);
-        mountainHeight += Math.floor((rockNoise - 0.5) * 3);
-        mountainHeight = Math.max(targetBase, Math.min(MOUNTAIN_PEAK_Y, mountainHeight));
-      } else {
-        // Just outside mountain - transition to normal terrain
-        const terrainHeight = getTerrainHeightAt(wx, wz);
-        const blendT = (dist - MOUNTAIN_RADIUS) / 3;
-        mountainHeight = Math.floor(12 + (terrainHeight - 12) * blendT);
+      // Skip if outside castle XZ bounds
+      if (castleX < 0 || castleX >= CASTLE_WIDTH || castleZ < 0 || castleZ >= CASTLE_DEPTH) {
+        continue;
       }
 
-      // Override terrain blocks
-      for (let y = 0; y < CHUNK_HEIGHT; y++) {
-        if (y <= 2) {
-          setBlockInChunk(chunk, x, y, z, BlockType.STONE);
-        } else if (y < mountainHeight - 2) {
-          setBlockInChunk(chunk, x, y, z, BlockType.STONE);
-        } else if (y < mountainHeight) {
-          if (dist <= MOUNTAIN_PEAK_RADIUS) {
-            setBlockInChunk(chunk, x, y, z, BlockType.DIRT);
-          } else {
-            setBlockInChunk(chunk, x, y, z, BlockType.STONE);
-          }
-        } else if (y === mountainHeight) {
-          if (dist <= MOUNTAIN_PEAK_RADIUS) {
-            setBlockInChunk(chunk, x, y, z, BlockType.GRASS);
-          } else {
-            setBlockInChunk(chunk, x, y, z, BlockType.STONE);
-          }
-        } else {
-          setBlockInChunk(chunk, x, y, z, BlockType.AIR);
-        }
+      // Place castle blocks at this column
+      for (let castleY = 0; castleY < CASTLE_HEIGHT; castleY++) {
+        const block = getCastleBlock(castleX, castleY, castleZ);
+        if (block === 0) continue; // Skip air
+
+        const worldY = CASTLE_BASE_Y + castleY;
+        if (worldY < 0 || worldY >= CHUNK_HEIGHT) continue;
+
+        setBlockInChunk(chunk, x, worldY, z, block as BlockType);
       }
     }
   }
 
-  // ====== PHASE 2: Winding staircase ======
-  const stairStartY = 14;
-  const stairEndY = MOUNTAIN_PEAK_Y;
-  const numTurns = 2.5;
-  const totalSteps = (stairEndY - stairStartY) * 6;
-
-  for (let step = 0; step <= totalSteps; step++) {
-    const t = step / totalSteps;
-    const y = Math.floor(stairStartY + t * (stairEndY - stairStartY));
-    const angle = -Math.PI / 2 + t * Math.PI * 2 * numTurns; // Start from south
-
-    // Mountain surface radius shrinks as we go up
-    const heightRatio = t;
-    const surfaceRadius = MOUNTAIN_RADIUS - (MOUNTAIN_RADIUS - MOUNTAIN_PEAK_RADIUS) * heightRatio;
-    const stairRadius = surfaceRadius - 2;
-
-    const stairCenterX = cx + Math.cos(angle) * stairRadius;
-    const stairCenterZ = cz + Math.sin(angle) * stairRadius;
-
-    // Tangent direction for path width
-    const tangentX = -Math.sin(angle);
-    const tangentZ = Math.cos(angle);
-
-    // Place step blocks (3 wide)
-    for (let w = -1; w <= 1; w++) {
-      const sx = Math.round(stairCenterX + tangentX * w);
-      const sz = Math.round(stairCenterZ + tangentZ * w);
-
-      placeBlock(sx, y, sz, BlockType.COBBLESTONE);
-      // Clear air above for headroom
-      for (let h = 1; h <= 4; h++) {
-        placeBlock(sx, y + h, sz, BlockType.AIR);
-      }
-    }
-
-    // Railing on outer edge
-    const railX = Math.round(stairCenterX + Math.cos(angle) * 2);
-    const railZ = Math.round(stairCenterZ + Math.sin(angle) * 2);
-    placeBlock(railX, y + 1, railZ, BlockType.COBBLESTONE);
-
-    // Vegetation decoration every ~15 steps
-    if (step % 15 === 0) {
-      const plantX = Math.round(stairCenterX - Math.cos(angle) * 1);
-      const plantZ = Math.round(stairCenterZ - Math.sin(angle) * 1);
-      placeBlock(plantX, y + 1, plantZ, BlockType.LEAVES);
-    }
-  }
-
-  // ====== PHASE 3: Castle ======
-  const baseY = MOUNTAIN_PEAK_Y + 1;
-  const halfSize = 14; // 28×28 footprint
-
-  // === FOUNDATION ===
-  for (let x = -halfSize; x < halfSize; x++) {
-    for (let z = -halfSize; z < halfSize; z++) {
-      placeBlock(cx + x, baseY - 1, cz + z, BlockType.COBBLESTONE);
-      placeBlock(cx + x, baseY, cz + z, BlockType.COBBLESTONE);
-    }
-  }
-
-  // === OUTER CURTAIN WALLS ===
-  const wallHeight = 8;
-  for (let y = 1; y <= wallHeight; y++) {
-    for (let x = -halfSize; x < halfSize; x++) {
-      // South wall
-      placeBlock(cx + x, baseY + y, cz - halfSize, BlockType.COBBLESTONE);
-      // North wall
-      placeBlock(cx + x, baseY + y, cz + halfSize - 1, BlockType.COBBLESTONE);
-    }
-    for (let z = -halfSize; z < halfSize; z++) {
-      // West wall
-      placeBlock(cx - halfSize, baseY + y, cz + z, BlockType.COBBLESTONE);
-      // East wall
-      placeBlock(cx + halfSize - 1, baseY + y, cz + z, BlockType.COBBLESTONE);
-    }
-  }
-
-  // Gate opening (south wall center)
-  for (let x = -2; x <= 2; x++) {
-    for (let y = 1; y <= 4; y++) {
-      placeBlock(cx + x, baseY + y, cz - halfSize, BlockType.AIR);
-    }
-  }
-  // Stone arch above gate
-  for (let x = -3; x <= 3; x++) {
-    placeBlock(cx + x, baseY + 5, cz - halfSize, BlockType.STONE);
-  }
-
-  // Battlements on walls (crenellations)
-  for (let x = -halfSize; x < halfSize; x++) {
-    if (x % 2 === 0) {
-      placeBlock(cx + x, baseY + wallHeight + 1, cz - halfSize, BlockType.COBBLESTONE);
-      placeBlock(cx + x, baseY + wallHeight + 1, cz + halfSize - 1, BlockType.COBBLESTONE);
-    }
-  }
-  for (let z = -halfSize; z < halfSize; z++) {
-    if (z % 2 === 0) {
-      placeBlock(cx - halfSize, baseY + wallHeight + 1, cz + z, BlockType.COBBLESTONE);
-      placeBlock(cx + halfSize - 1, baseY + wallHeight + 1, cz + z, BlockType.COBBLESTONE);
-    }
-  }
-
-  // Wall walkway (inner ledge for walking on top of walls)
-  for (let x = -halfSize + 1; x < halfSize - 1; x++) {
-    placeBlock(cx + x, baseY + wallHeight, cz - halfSize + 1, BlockType.COBBLESTONE);
-    placeBlock(cx + x, baseY + wallHeight, cz + halfSize - 2, BlockType.COBBLESTONE);
-  }
-  for (let z = -halfSize + 1; z < halfSize - 1; z++) {
-    placeBlock(cx - halfSize + 1, baseY + wallHeight, cz + z, BlockType.COBBLESTONE);
-    placeBlock(cx + halfSize - 2, baseY + wallHeight, cz + z, BlockType.COBBLESTONE);
-  }
-
-  // === 4 CORNER TOWERS ===
-  const towerSize = 6;
-  const towerHeight = 20;
-  const spireHeight = 6;
-  const towerPositions = [
-    { x: cx - halfSize, z: cz - halfSize },          // SW
-    { x: cx + halfSize - towerSize, z: cz - halfSize },        // SE
-    { x: cx + halfSize - towerSize, z: cz + halfSize - towerSize },  // NE
-    { x: cx - halfSize, z: cz + halfSize - towerSize },        // NW
-  ];
-
-  for (const pos of towerPositions) {
-    generateTower(placeBlock, pos.x, baseY, pos.z, towerSize, towerHeight, spireHeight, random);
-  }
-
-  // === GATE TOWERS (flanking south entrance) ===
-  generateTower(placeBlock, cx - 5, baseY, cz - halfSize, 4, 14, 4, random);
-  generateTower(placeBlock, cx + 2, baseY, cz - halfSize, 4, 14, 4, random);
-
-  // === CENTRAL KEEP ===
-  const keepHalf = 6; // 12×12 keep
-  const keepHeight = 20;
-
-  for (let y = 1; y <= keepHeight; y++) {
-    for (let x = -keepHalf; x < keepHalf; x++) {
-      for (let z = -keepHalf; z < keepHalf; z++) {
-        const isEdgeX = x === -keepHalf || x === keepHalf - 1;
-        const isEdgeZ = z === -keepHalf || z === keepHalf - 1;
-        const isCorner = isEdgeX && isEdgeZ;
-
-        if (isEdgeX || isEdgeZ) {
-          // Gothic windows
-          const floorLevel = y % 6;
-          const isWindowLevel = floorLevel >= 2 && floorLevel <= 4;
-          const isWindowPosX = !isEdgeZ && (Math.abs(z) <= 1);
-          const isWindowPosZ = !isEdgeX && (Math.abs(x) <= 1);
-
-          if (isWindowLevel && (isWindowPosX || isWindowPosZ) && !isCorner) {
-            // Leave window opening
-          } else {
-            placeBlock(cx + x, baseY + y, cz + z, isCorner ? BlockType.STONE : BlockType.COBBLESTONE);
-          }
-        }
-
-        // Interior floors every 6 blocks
-        if (y > 1 && y % 6 === 0 && !isEdgeX && !isEdgeZ) {
-          placeBlock(cx + x, baseY + y, cz + z, BlockType.PLANKS);
-        }
-      }
-    }
-  }
-
-  // Keep entrance (south side)
-  for (let x = -1; x <= 1; x++) {
-    for (let y = 1; y <= 3; y++) {
-      placeBlock(cx + x, baseY + y, cz - keepHalf, BlockType.AIR);
-    }
-  }
-
-  // Keep battlements
-  for (let x = -keepHalf; x < keepHalf; x++) {
-    for (let z = -keepHalf; z < keepHalf; z++) {
-      const isEdge = x === -keepHalf || x === keepHalf - 1 || z === -keepHalf || z === keepHalf - 1;
-      if (isEdge && (x + z) % 2 === 0) {
-        placeBlock(cx + x, baseY + keepHeight + 1, cz + z, BlockType.COBBLESTONE);
-        placeBlock(cx + x, baseY + keepHeight + 2, cz + z, BlockType.COBBLESTONE);
-      }
-    }
-  }
-
-  // Keep crown tower (small tower on top of keep)
-  generateTower(placeBlock, cx - 3, baseY + keepHeight + 2, cz - 3, 6, 3, 3, random);
-
-  // === INTERIOR STAIRCASES (inside keep) ===
-  for (let floor = 0; floor < 3; floor++) {
-    const floorY = baseY + 1 + floor * 6;
-    // Stairs along west interior wall
-    for (let step = 0; step < 6; step++) {
-      placeBlock(cx - keepHalf + 1, floorY + step, cz - keepHalf + 2 + step, BlockType.COBBLESTONE);
-      placeBlock(cx - keepHalf + 2, floorY + step, cz - keepHalf + 2 + step, BlockType.COBBLESTONE);
-    }
-  }
-
-  // === THRONE ROOM (top floor of keep) ===
-  const throneY = baseY + 1 + 3 * 6;
-  // Throne platform
-  placeBlock(cx, throneY, cz + keepHalf - 3, BlockType.COBBLESTONE);
-  placeBlock(cx, throneY + 1, cz + keepHalf - 3, BlockType.COBBLESTONE);
-  placeBlock(cx, throneY + 2, cz + keepHalf - 3, BlockType.STONE);
-  placeBlock(cx - 1, throneY + 1, cz + keepHalf - 3, BlockType.WOOD);
-  placeBlock(cx + 1, throneY + 1, cz + keepHalf - 3, BlockType.WOOD);
-
-  // === COURTYARD FEATURES ===
-
-  // Well (NE courtyard)
-  const wellX = cx + 8;
-  const wellZ = cz + 3;
-  for (let wx = -1; wx <= 1; wx++) {
-    for (let wz = -1; wz <= 1; wz++) {
-      if (Math.abs(wx) === 1 || Math.abs(wz) === 1) {
-        placeBlock(wellX + wx, baseY + 1, wellZ + wz, BlockType.COBBLESTONE);
-      } else {
-        placeBlock(wellX + wx, baseY + 1, wellZ + wz, BlockType.WATER);
-      }
-    }
-  }
-  // Well posts and roof
-  placeBlock(wellX - 1, baseY + 2, wellZ - 1, BlockType.WOOD);
-  placeBlock(wellX + 1, baseY + 2, wellZ - 1, BlockType.WOOD);
-  placeBlock(wellX - 1, baseY + 3, wellZ - 1, BlockType.WOOD);
-  placeBlock(wellX + 1, baseY + 3, wellZ - 1, BlockType.WOOD);
-  for (let wx = -1; wx <= 1; wx++) {
-    placeBlock(wellX + wx, baseY + 4, wellZ, BlockType.PLANKS);
-    placeBlock(wellX + wx, baseY + 4, wellZ - 1, BlockType.PLANKS);
-  }
-
-  // Gardens (leaves as decorative plants)
-  // East garden
-  for (let gx = 7; gx <= 12; gx++) {
-    for (let gz = -5; gz <= -3; gz++) {
-      placeBlock(cx + gx, baseY + 1, cz + gz, BlockType.LEAVES);
-    }
-  }
-  // West garden
-  for (let gx = -12; gx <= -7; gx++) {
-    for (let gz = 3; gz <= 5; gz++) {
-      placeBlock(cx + gx, baseY + 1, cz + gz, BlockType.LEAVES);
-    }
-  }
-  // Small trees in courtyard
-  for (const treePos of [{ x: cx - 9, z: cz - 4 }, { x: cx + 9, z: cz + 7 }]) {
-    for (let ty = 1; ty <= 4; ty++) {
-      placeBlock(treePos.x, baseY + ty, treePos.z, BlockType.WOOD);
-    }
-    for (let lx = -1; lx <= 1; lx++) {
-      for (let lz = -1; lz <= 1; lz++) {
-        if (lx === 0 && lz === 0) continue;
-        placeBlock(treePos.x + lx, baseY + 4, treePos.z + lz, BlockType.LEAVES);
-        placeBlock(treePos.x + lx, baseY + 5, treePos.z + lz, BlockType.LEAVES);
-      }
-    }
-    placeBlock(treePos.x, baseY + 5, treePos.z, BlockType.LEAVES);
-    placeBlock(treePos.x, baseY + 6, treePos.z, BlockType.LEAVES);
-  }
-
-  // Courtyard paths (cobblestone walkways)
-  // Path from gate to keep
-  for (let z = -halfSize + 1; z <= -keepHalf; z++) {
-    placeBlock(cx - 1, baseY, cz + z, BlockType.COBBLESTONE);
-    placeBlock(cx, baseY, cz + z, BlockType.COBBLESTONE);
-    placeBlock(cx + 1, baseY, cz + z, BlockType.COBBLESTONE);
-  }
-  // East-west crosspath
-  for (let x = -halfSize + 1; x < halfSize - 1; x++) {
-    placeBlock(cx + x, baseY, cz, BlockType.COBBLESTONE);
-  }
-
-  // === FLAGS on corner towers ===
-  for (const pos of towerPositions) {
-    const flagX = pos.x + Math.floor(towerSize / 2);
-    const flagZ = pos.z + Math.floor(towerSize / 2);
-    const flagBaseY = baseY + towerHeight + 2 + spireHeight + 2;
-    placeBlock(flagX, flagBaseY, flagZ, BlockType.WOOD);
-    placeBlock(flagX, flagBaseY + 1, flagZ, BlockType.WOOD);
-    placeBlock(flagX + 1, flagBaseY + 1, flagZ, BlockType.OBSIDIAN);
-    placeBlock(flagX + 1, flagBaseY, flagZ, BlockType.OBSIDIAN);
-  }
-
-  // === CONNECTING WALKWAYS (keep to corner towers at wall height) ===
-  // Covered bridges from keep corners to tower entrances
-  for (const pos of towerPositions) {
-    const towerCenterX = pos.x + Math.floor(towerSize / 2);
-    const towerCenterZ = pos.z + Math.floor(towerSize / 2);
-    const walkY = baseY + wallHeight;
-
-    // Simple bridge from keep edge toward tower
-    const dirX = towerCenterX > cx ? 1 : -1;
-    const dirZ = towerCenterZ > cz ? 1 : -1;
-
-    // Horizontal bridge along X
-    const startX = cx + dirX * keepHalf;
-    const endX = towerCenterX;
-    const bridgeZ = cz + dirZ * keepHalf;
-    const stepX = dirX;
-    for (let bx = startX; bx !== endX; bx += stepX) {
-      placeBlock(bx, walkY, bridgeZ, BlockType.COBBLESTONE);
-      // Railings
-      placeBlock(bx, walkY + 1, bridgeZ + dirZ, BlockType.COBBLESTONE);
-    }
-  }
-
-  // === GRAND ENTRANCE STEPS (from mountain stairs to castle gate) ===
-  for (let step = 0; step < 4; step++) {
-    const stepWidth = 6 - step;
-    const stepX = cx - Math.floor(stepWidth / 2);
-    for (let x = 0; x < stepWidth; x++) {
-      placeBlock(stepX + x, baseY - step, cz - halfSize - step - 1, BlockType.COBBLESTONE);
-    }
-  }
 }
 
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
@@ -1675,9 +1320,9 @@ export function generateChunk(position: ChunkPosition): ChunkData {
     generatePirateShipInChunk(chunk, worldX, worldZ);
   }
 
-  // Add mountain + castle
-  if (chunkContainsMountainCastle(worldX, worldZ)) {
-    generateMountainCastleInChunk(chunk, worldX, worldZ);
+  // Add imported Dark Fantasy Castle
+  if (chunkContainsCastle(worldX, worldZ)) {
+    generateCastleInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;

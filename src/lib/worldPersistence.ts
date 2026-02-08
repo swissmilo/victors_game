@@ -173,7 +173,7 @@ export function saveWorld(
     }
     
     const saveData: WorldSaveData = {
-      version: 3, // Bump version for zombie data
+      version: 4, // Bump for CHUNK_HEIGHT 256 + new block types
       savedAt: Date.now(),
       playerPosition,
       playerRotation,

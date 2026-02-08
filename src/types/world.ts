@@ -3,7 +3,7 @@
 import { BlockType } from './blocks';
 
 export const CHUNK_SIZE = 16;
-export const CHUNK_HEIGHT = 64;
+export const CHUNK_HEIGHT = 256;
 
 export interface ChunkPosition {
   x: number;
