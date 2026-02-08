@@ -176,18 +176,21 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
         setHotbarSelection(parseInt(key) - 1);
       }
       
-      // Double-tap space to toggle fly mode
+      // Double-tap space to toggle fly mode (skip when steering ship)
       if (event.code === 'Space' && !spaceWasDownRef.current) {
-        const now = Date.now();
-        const timeSinceLastPress = now - lastSpacePressRef.current;
-        
-        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
-          setIsFlying(!isFlying);
-          // Reset velocity when toggling fly
-          velocityRef.current.y = 0;
+        const { pirateShip } = useGameStore.getState();
+        if (!pirateShip.isPlayerSteering) {
+          const now = Date.now();
+          const timeSinceLastPress = now - lastSpacePressRef.current;
+
+          if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
+            setIsFlying(!isFlying);
+            // Reset velocity when toggling fly
+            velocityRef.current.y = 0;
+          }
+
+          lastSpacePressRef.current = now;
         }
-        
-        lastSpacePressRef.current = now;
         spaceWasDownRef.current = true;
       }
     };
@@ -350,10 +353,10 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       const dz = hz - positionRef.current.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
 
-      // Pull strength: base 8, inversely proportional to distance
-      // Active from 5-40 blocks distance
-      if (distance > 5 && distance < 40) {
-        const pullStrength = 8 * hurricane.intensity * (1 - (distance - 5) / 35);
+      // Pull strength: base 40, inversely proportional to distance
+      // Active from 5-60 blocks distance
+      if (distance > 5 && distance < 60) {
+        const pullStrength = 40 * hurricane.intensity * (1 - (distance - 5) / 55);
         if (distance > 0.1) {
           velocityRef.current.x += (dx / distance) * pullStrength * dt;
           velocityRef.current.z += (dz / distance) * pullStrength * dt;

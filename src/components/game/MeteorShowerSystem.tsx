@@ -14,17 +14,21 @@ const CLEARING_DURATION = 3;      // Seconds for sky to clear
 // Meteor configuration
 const MAX_METEORS = 20;           // Maximum concurrent meteors
 const METEOR_SPAWN_RATE = 1.5;    // Meteors per second during active phase
-const METEOR_SPAWN_HEIGHT = 80;   // Y level where meteors spawn
+const METEOR_SPAWN_HEIGHT = 200;  // Y level where meteors spawn (high in sky, visible from ground)
 const METEOR_SPAWN_RADIUS = 60;   // XZ radius around player for spawning
-const METEOR_SPEED = 25;          // Fall speed
-const METEOR_SIZE = 1.5;          // Visual size of meteor
+const METEOR_SPEED = 30;          // Fall speed
+const METEOR_SIZE = 3.0;          // Visual size of meteor
 
 // Crater configuration
 const CRATER_RADIUS = 4;          // Blocks destroyed in crater
 const CRATER_DEPTH = 3;           // How deep the crater goes
 
 // Trail configuration
-const TRAIL_SEGMENTS = 8;         // Number of trail segments per meteor
+const TRAIL_SEGMENTS = 24;        // Number of trail segments per meteor
+const TRAIL_TIME_STEP = 0.08;     // Seconds between trail points (velocity-based)
+
+// Streak configuration
+const STREAK_LENGTH_FACTOR = 0.5; // Seconds of velocity for streak length
 
 // Explosion configuration
 const MAX_EXPLOSIONS = 10;
@@ -46,12 +50,21 @@ const meteorMaterial = new THREE.MeshBasicMaterial({
   color: 0xff4400,
   transparent: true,
   opacity: 0.9,
+  fog: false,
 });
 
 const meteorGlowMaterial = new THREE.MeshBasicMaterial({
   color: 0xffaa00,
   transparent: true,
   opacity: 0.5,
+  fog: false,
+});
+
+const streakMaterial = new THREE.MeshBasicMaterial({
+  color: 0xff6600,
+  transparent: true,
+  opacity: 0.7,
+  fog: false,
 });
 
 // Trail positions buffer (module level to avoid hooks issues)
@@ -76,6 +89,7 @@ export function MeteorShowerSystem() {
   // Meteor instance refs
   const meteorInstanceRef = useRef<THREE.InstancedMesh>(null);
   const glowInstanceRef = useRef<THREE.InstancedMesh>(null);
+  const streakInstanceRef = useRef<THREE.InstancedMesh>(null);
   const explosionInstanceRef = useRef<THREE.InstancedMesh>(null);
 
   // Trail points ref
@@ -90,7 +104,8 @@ export function MeteorShowerSystem() {
 
   // Create geometries
   const meteorGeometry = useMemo(() => new THREE.SphereGeometry(METEOR_SIZE, 8, 8), []);
-  const glowGeometry = useMemo(() => new THREE.SphereGeometry(METEOR_SIZE * 1.5, 8, 8), []);
+  const glowGeometry = useMemo(() => new THREE.SphereGeometry(METEOR_SIZE * 2, 8, 8), []);
+  const streakGeometry = useMemo(() => new THREE.CylinderGeometry(0.3, 1.2, 1, 6), []);
   const explosionGeometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
 
   // Initialize meteor and explosion data
@@ -235,7 +250,11 @@ export function MeteorShowerSystem() {
   }, []);
 
   const tempMatrix = useMemo(() => new THREE.Matrix4(), []);
+  const tempMatrix2 = useMemo(() => new THREE.Matrix4(), []);
   const tempPosition = useMemo(() => new THREE.Vector3(), []);
+  const tempScale = useMemo(() => new THREE.Vector3(), []);
+  const tempQuat = useMemo(() => new THREE.Quaternion(), []);
+  const upVec = useMemo(() => new THREE.Vector3(0, 1, 0), []);
 
   useFrame((_, delta) => {
     if (!isPlaying) return;
@@ -366,19 +385,37 @@ export function MeteorShowerSystem() {
     }
 
     // Update instance meshes
-    if (meteorInstanceRef.current && glowInstanceRef.current) {
+    if (meteorInstanceRef.current && glowInstanceRef.current && streakInstanceRef.current) {
       for (let i = 0; i < MAX_METEORS; i++) {
         const meteor = meteorsData.current[i];
         if (meteor.active) {
           tempMatrix.makeTranslation(meteor.position.x, meteor.position.y, meteor.position.z);
+
+          // Streak: tapered cylinder aligned with velocity direction
+          const vel = meteor.velocity;
+          const speed = vel.length();
+          const streakLen = speed * STREAK_LENGTH_FACTOR;
+          const dirX = vel.x / speed, dirY = vel.y / speed, dirZ = vel.z / speed;
+          tempPosition.set(dirX, dirY, dirZ);
+          tempQuat.setFromUnitVectors(upVec, tempPosition);
+          tempPosition.set(
+            meteor.position.x + dirX * streakLen * 0.5,
+            meteor.position.y + dirY * streakLen * 0.5,
+            meteor.position.z + dirZ * streakLen * 0.5
+          );
+          tempScale.set(1, streakLen, 1);
+          tempMatrix2.compose(tempPosition, tempQuat, tempScale);
+          streakInstanceRef.current.setMatrixAt(i, tempMatrix2);
         } else {
           tempMatrix.copy(dummyMatrix);
+          streakInstanceRef.current.setMatrixAt(i, dummyMatrix);
         }
         meteorInstanceRef.current.setMatrixAt(i, tempMatrix);
         glowInstanceRef.current.setMatrixAt(i, tempMatrix);
       }
       meteorInstanceRef.current.instanceMatrix.needsUpdate = true;
       glowInstanceRef.current.instanceMatrix.needsUpdate = true;
+      streakInstanceRef.current.instanceMatrix.needsUpdate = true;
     }
 
     // Update explosions
@@ -404,7 +441,7 @@ export function MeteorShowerSystem() {
       explosionInstanceRef.current.instanceMatrix.needsUpdate = true;
     }
 
-    // Update trail positions
+    // Update trail positions (velocity-based projection behind each meteor)
     if (trailRef.current) {
       const positions = trailPositionsBuffer;
       let idx = 0;
@@ -412,11 +449,10 @@ export function MeteorShowerSystem() {
         const meteor = meteorsData.current[i];
         for (let j = 0; j < TRAIL_SEGMENTS; j++) {
           if (meteor.active) {
-            // Create trail behind meteor
-            const trailOffset = j * 2;
-            positions[idx++] = meteor.position.x - meteor.velocity.x * delta * trailOffset * 0.5;
-            positions[idx++] = meteor.position.y - meteor.velocity.y * delta * trailOffset * 0.5;
-            positions[idx++] = meteor.position.z - meteor.velocity.z * delta * trailOffset * 0.5;
+            const t = (j + 1) * TRAIL_TIME_STEP;
+            positions[idx++] = meteor.position.x - meteor.velocity.x * t;
+            positions[idx++] = meteor.position.y - meteor.velocity.y * t;
+            positions[idx++] = meteor.position.z - meteor.velocity.z * t;
           } else {
             positions[idx++] = 0;
             positions[idx++] = -1000;
@@ -438,24 +474,27 @@ export function MeteorShowerSystem() {
 
   return (
     <group>
-      {/* Meteor instances */}
-      <instancedMesh ref={meteorInstanceRef} args={[meteorGeometry, meteorMaterial, MAX_METEORS]} />
-      <instancedMesh ref={glowInstanceRef} args={[glowGeometry, meteorGlowMaterial, MAX_METEORS]} />
+      {/* Meteor instances - frustumCulled=false because instances are positioned far from origin */}
+      <instancedMesh ref={meteorInstanceRef} args={[meteorGeometry, meteorMaterial, MAX_METEORS]} frustumCulled={false} />
+      <instancedMesh ref={glowInstanceRef} args={[glowGeometry, meteorGlowMaterial, MAX_METEORS]} frustumCulled={false} />
+
+      {/* Streak trails (tapered cylinders behind each meteor) */}
+      <instancedMesh ref={streakInstanceRef} args={[streakGeometry, streakMaterial, MAX_METEORS]} frustumCulled={false} />
 
       {/* Explosion instances */}
-      <instancedMesh ref={explosionInstanceRef} args={[explosionGeometry, undefined, MAX_EXPLOSIONS]}>
-        <meshBasicMaterial color={0xff8800} transparent opacity={0.7} />
+      <instancedMesh ref={explosionInstanceRef} args={[explosionGeometry, undefined, MAX_EXPLOSIONS]} frustumCulled={false}>
+        <meshBasicMaterial color={0xff8800} transparent opacity={0.7} fog={false} />
       </instancedMesh>
 
-      {/* Trail particles */}
-      <points ref={trailRef}>
+      {/* Trail particles (scattered embers behind each meteor) */}
+      <points ref={trailRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
             args={[trailPositionsBuffer, 3]}
           />
         </bufferGeometry>
-        <pointsMaterial color={0xff6600} size={0.8} transparent opacity={0.7} sizeAttenuation />
+        <pointsMaterial color={0xff6600} size={5.0} transparent opacity={0.7} sizeAttenuation fog={false} />
       </points>
 
       {/* Dark sky overlay */}

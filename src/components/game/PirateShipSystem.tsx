@@ -25,45 +25,73 @@ function getWheelWorldPos(shipPos: [number, number, number]): [number, number, n
 // PirateShipSystem Component
 // ============================================================
 
+const DOUBLE_TAP_THRESHOLD = 350; // ms for double-tap detection
+
 export function PirateShipSystem() {
   const updatePirateShip = useGameStore((state) => state.updatePirateShip);
-  const shiftPressedRef = useRef(false);
   const keysRef = useRef<Record<string, boolean>>({});
   const lastMoveTimeRef = useRef(0);
+  const lastShiftTapRef = useRef(0);
+  const lastSpaceTapRef = useRef(0);
 
-  // Keyboard tracking + shift handler
+  // Keyboard tracking + double-tap handler for entering/exiting steering
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current[e.code] = true;
 
-      // Shift key handler for toggling steering
-      if (e.code !== 'ShiftLeft' && e.code !== 'ShiftRight') return;
-      if (shiftPressedRef.current) return;
-      shiftPressedRef.current = true;
+      const isShift = e.code === 'ShiftLeft' || e.code === 'ShiftRight';
+      const isSpace = e.code === 'Space';
 
+      if (!isShift && !isSpace) return;
+
+      const now = Date.now();
       const { pirateShip, playerPosition } = useGameStore.getState();
 
-      if (pirateShip.isPlayerSteering) {
-        updatePirateShip({ isPlayerSteering: false });
-      } else {
-        // Check proximity to steering wheel (dynamic position)
-        const [wheelX, wheelY, wheelZ] = getWheelWorldPos(pirateShip.position);
-        const dx = playerPosition[0] - wheelX;
-        const dy = playerPosition[1] - wheelY;
-        const dz = playerPosition[2] - wheelZ;
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (isShift) {
+        if (now - lastShiftTapRef.current < DOUBLE_TAP_THRESHOLD) {
+          // Double-shift: toggle steering
+          if (pirateShip.isPlayerSteering) {
+            updatePirateShip({ isPlayerSteering: false });
+          } else {
+            const [wheelX, wheelY, wheelZ] = getWheelWorldPos(pirateShip.position);
+            const dx = playerPosition[0] - wheelX;
+            const dy = playerPosition[1] - wheelY;
+            const dz = playerPosition[2] - wheelZ;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (distance < WHEEL_INTERACT_DISTANCE) {
+              updatePirateShip({ isPlayerSteering: true });
+            }
+          }
+          lastShiftTapRef.current = 0; // Reset to prevent triple-tap
+        } else {
+          lastShiftTapRef.current = now;
+        }
+      }
 
-        if (distance < WHEEL_INTERACT_DISTANCE) {
-          updatePirateShip({ isPlayerSteering: true });
+      if (isSpace) {
+        if (now - lastSpaceTapRef.current < DOUBLE_TAP_THRESHOLD) {
+          // Double-space: toggle steering
+          if (pirateShip.isPlayerSteering) {
+            updatePirateShip({ isPlayerSteering: false });
+          } else {
+            const [wheelX, wheelY, wheelZ] = getWheelWorldPos(pirateShip.position);
+            const dx = playerPosition[0] - wheelX;
+            const dy = playerPosition[1] - wheelY;
+            const dz = playerPosition[2] - wheelZ;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (distance < WHEEL_INTERACT_DISTANCE) {
+              updatePirateShip({ isPlayerSteering: true });
+            }
+          }
+          lastSpaceTapRef.current = 0;
+        } else {
+          lastSpaceTapRef.current = now;
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       keysRef.current[e.code] = false;
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-        shiftPressedRef.current = false;
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -83,29 +111,39 @@ export function PirateShipSystem() {
     if (now - lastMoveTimeRef.current < SHIP_MOVE_INTERVAL) return;
 
     const keys = keysRef.current;
-    let dx = 0, dz = 0;
+    let dx = 0, dy = 0, dz = 0;
     if (keys['KeyW']) dz += 1;
     if (keys['KeyS']) dz -= 1;
     if (keys['KeyA']) dx += 1;
     if (keys['KeyD']) dx -= 1;
+    if (keys['Space']) dy += 1;
+    if (keys['ShiftLeft'] || keys['ShiftRight']) dy -= 1;
 
-    if (dx === 0 && dz === 0) return;
+    if (dx === 0 && dy === 0 && dz === 0) return;
 
-    // Only move one axis at a time (prioritize forward/back)
+    // Only move one horizontal axis at a time (prioritize forward/back)
     if (dx !== 0 && dz !== 0) dx = 0;
 
     const oldX = pirateShip.position[0];
+    const oldY = pirateShip.position[1];
     const oldZ = pirateShip.position[2];
     const newX = oldX + dx;
+    const newY = oldY + dy;
     const newZ = oldZ + dz;
 
-    // Check lake bounds
-    const distFromCenter = Math.sqrt(
-      (newX - LAKE_CENTER_X) ** 2 + (newZ - LAKE_CENTER_Z) ** 2
-    );
-    if (distFromCenter > LAKE_MOVEMENT_RADIUS) return;
+    // Don't go below water level
+    if (newY < LAKE_WATER_LEVEL) return;
 
-    const deckY = pirateShip.position[1] + 1; // LAKE_WATER_LEVEL + 1
+    // Check lake bounds only when on the water (not flying)
+    const isFlying = newY > LAKE_WATER_LEVEL;
+    if (!isFlying && (dx !== 0 || dz !== 0)) {
+      const distFromCenter = Math.sqrt(
+        (newX - LAKE_CENTER_X) ** 2 + (newZ - LAKE_CENTER_Z) ** 2
+      );
+      if (distFromCenter > LAKE_MOVEMENT_RADIUS) return;
+    }
+
+    const deckY = oldY + 1;
 
     // Phase 1: Scan bounding box, collect ship blocks, clear old positions
     const shipBlocks: Array<{ rx: number; ry: number; rz: number; blockType: BlockType }> = [];
@@ -131,9 +169,10 @@ export function PirateShipSystem() {
     }
 
     // Phase 2: Place ship blocks at new position
+    const newDeckY = newY + 1;
     for (const block of shipBlocks) {
       const wx = newX + block.rx;
-      const wy = deckY + block.ry;
+      const wy = newDeckY + block.ry;
       const wz = newZ + block.rz;
       const key = setBlockAtWorld(wx, wy, wz, block.blockType, chunks);
       if (key) dirtyChunkKeys.add(key);
@@ -158,7 +197,7 @@ export function PirateShipSystem() {
       chunks: newChunks,
       pirateShip: {
         ...pirateShip,
-        position: [newX, pirateShip.position[1], newZ] as [number, number, number],
+        position: [newX, newY, newZ] as [number, number, number],
       },
     });
 

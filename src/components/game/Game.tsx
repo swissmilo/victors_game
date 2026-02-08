@@ -292,12 +292,12 @@ export function Game() {
           )}
           {pirateShip.isPlayerSteering && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-700/80 text-white text-sm rounded">
-              Steering Ship (Shift to exit)
+              Steering Ship - Space/Shift to fly (double-tap to exit)
             </div>
           )}
           {isNearShipWheel && (
             <div className="absolute top-28 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-800/80 text-white text-sm rounded">
-              Press Shift to steer
+              Double-tap Shift to steer
             </div>
           )}
         </div>
