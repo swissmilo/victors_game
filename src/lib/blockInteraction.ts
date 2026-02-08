@@ -163,6 +163,70 @@ export function setBlockAtWorld(
   
   const local = worldToLocalPosition(x, y, z);
   setBlockInChunk(chunk.data, local.x, local.y, local.z, blockType);
-  
+
   return key;
+}
+
+/**
+ * Spread water from a placed source block using BFS.
+ * Water flows down through air (unlimited) and horizontally on surfaces (up to 7 blocks).
+ * Returns array of modified chunk keys for dirty marking.
+ */
+export function spreadWater(
+  sourceX: number,
+  sourceY: number,
+  sourceZ: number,
+  chunks: Map<string, { data: ChunkData; position: ChunkPosition }>,
+  maxBlocks: number = 150
+): string[] {
+  const modifiedKeys = new Set<string>();
+  const visited = new Set<string>();
+  const queue: [number, number, number, number][] = []; // x, y, z, horizontalDist
+
+  const pk = (x: number, y: number, z: number) => `${x},${y},${z}`;
+
+  visited.add(pk(sourceX, sourceY, sourceZ));
+  queue.push([sourceX, sourceY, sourceZ, 0]);
+
+  let placed = 0;
+
+  while (queue.length > 0 && placed < maxBlocks) {
+    const [x, y, z, hDist] = queue.shift()!;
+
+    // Flow down through air (always, resets horizontal distance)
+    if (y > 0) {
+      const bk = pk(x, y - 1, z);
+      if (!visited.has(bk)) {
+        const below = getBlockAtWorld(x, y - 1, z, chunks);
+        if (below === BlockType.AIR) {
+          visited.add(bk);
+          const ck = setBlockAtWorld(x, y - 1, z, BlockType.WATER, chunks);
+          if (ck) { modifiedKeys.add(ck); placed++; }
+          queue.push([x, y - 1, z, 0]);
+        }
+      }
+    }
+
+    // Flow horizontally (max 7 blocks from nearest downward flow point)
+    if (hDist >= 7) continue;
+
+    const dirs: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const [dx, dz] of dirs) {
+      const nx = x + dx;
+      const nz = z + dz;
+      const nk = pk(nx, y, nz);
+
+      if (visited.has(nk)) continue;
+
+      const neighbor = getBlockAtWorld(nx, y, nz, chunks);
+      if (neighbor !== BlockType.AIR) continue;
+
+      visited.add(nk);
+      const ck = setBlockAtWorld(nx, y, nz, BlockType.WATER, chunks);
+      if (ck) { modifiedKeys.add(ck); placed++; }
+      queue.push([nx, y, nz, hDist + 1]);
+    }
+  }
+
+  return [...modifiedKeys];
 }

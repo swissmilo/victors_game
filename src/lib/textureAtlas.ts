@@ -428,6 +428,7 @@ export { ATLAS_COLS as TEXTURES_PER_ROW };
 
 // Shared material instance for all chunk meshes (reduces GPU memory)
 let sharedChunkMaterial: THREE.MeshLambertMaterial | null = null;
+let sharedWaterMaterial: THREE.MeshLambertMaterial | null = null;
 
 /**
  * Get a shared material for chunk rendering
@@ -442,4 +443,21 @@ export function getSharedChunkMaterial(): THREE.MeshLambertMaterial {
     });
   }
   return sharedChunkMaterial;
+}
+
+/**
+ * Get a shared translucent material for water block rendering
+ */
+export function getSharedWaterMaterial(): THREE.MeshLambertMaterial {
+  if (!sharedWaterMaterial) {
+    const texture = getAtlasTexture();
+    sharedWaterMaterial = new THREE.MeshLambertMaterial({
+      map: texture,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+    });
+  }
+  return sharedWaterMaterial;
 }

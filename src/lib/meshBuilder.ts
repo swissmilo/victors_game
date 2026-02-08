@@ -169,6 +169,70 @@ export function createChunkGeometry(meshData: ChunkMeshData): THREE.BufferGeomet
 }
 
 /**
+ * Build mesh data for water blocks in a chunk.
+ * Separate from opaque mesh so it can use a translucent material.
+ */
+export function buildWaterMesh(chunk: ChunkData): ChunkMeshData {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const colors: number[] = [];
+
+  let vertexIndex = 0;
+
+  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        const block = getBlockFromChunk(chunk, x, y, z);
+        if (block !== BlockType.WATER) continue;
+
+        for (let faceIdx = 0; faceIdx < FACES.length; faceIdx++) {
+          const face = FACES[faceIdx];
+          const [dx, dy, dz] = face.dir;
+          const nx = x + dx;
+          const ny = y + dy;
+          const nz = z + dz;
+
+          // Skip face if neighbor is also water (no internal faces)
+          const neighbor = getBlockFromChunk(chunk, nx, ny, nz);
+          if (neighbor === BlockType.WATER) continue;
+
+          // Skip face if neighbor is solid and opaque
+          const neighborDef = BLOCK_DEFINITIONS[neighbor];
+          if (neighborDef?.solid && !neighborDef?.transparent) continue;
+
+          const textureIdx = getTextureIndex(block, faceIdx);
+          const [u0, v0, u1, v1] = getTextureUVs(textureIdx);
+          const faceShade = getFaceShading(faceIdx);
+
+          for (const corner of face.corners) {
+            positions.push(x + corner[0], y + corner[1], z + corner[2]);
+            normals.push(dx, dy, dz);
+            colors.push(faceShade, faceShade, faceShade);
+          }
+
+          uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
+          indices.push(
+            vertexIndex, vertexIndex + 2, vertexIndex + 1,
+            vertexIndex, vertexIndex + 3, vertexIndex + 2
+          );
+          vertexIndex += 4;
+        }
+      }
+    }
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint32Array(indices),
+    colors: new Float32Array(colors),
+  };
+}
+
+/**
  * Create collision geometry for physics (simplified - just box colliders for solid blocks)
  * Returns an array of block positions that need colliders
  */

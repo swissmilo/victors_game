@@ -3,8 +3,8 @@
 import { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { ChunkData, ChunkPosition, CHUNK_SIZE, CHUNK_HEIGHT } from '@/types';
-import { buildChunkMesh, createChunkGeometry } from '@/lib/meshBuilder';
-import { getSharedChunkMaterial } from '@/lib/textureAtlas';
+import { buildChunkMesh, buildWaterMesh, createChunkGeometry } from '@/lib/meshBuilder';
+import { getSharedChunkMaterial, getSharedWaterMaterial } from '@/lib/textureAtlas';
 
 interface ChunkMeshProps {
   position: ChunkPosition;
@@ -13,57 +13,75 @@ interface ChunkMeshProps {
 
 export function ChunkMesh({ position, data }: ChunkMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  
-  // Build mesh geometry from chunk data
+
+  // Build opaque mesh geometry from chunk data
   const geometry = useMemo(() => {
     const meshData = buildChunkMesh(data);
     const geo = createChunkGeometry(meshData);
-    
-    // Set explicit bounding box for frustum culling optimization
-    // This prevents Three.js from recalculating it every frame
+
     geo.boundingBox = new THREE.Box3(
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE)
     );
-    
-    // Compute bounding sphere from the box for faster frustum checks
     geo.boundingSphere = new THREE.Sphere();
     geo.boundingBox.getBoundingSphere(geo.boundingSphere);
-    
+
     return geo;
   }, [data]);
-  
-  // Use shared material across all chunks (reduces GPU memory and draw calls)
+
+  // Build water mesh geometry (separate for translucent rendering)
+  const waterGeometry = useMemo(() => {
+    const meshData = buildWaterMesh(data);
+    if (meshData.positions.length === 0) return null;
+    const geo = createChunkGeometry(meshData);
+
+    geo.boundingBox = new THREE.Box3(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE)
+    );
+    geo.boundingSphere = new THREE.Sphere();
+    geo.boundingBox.getBoundingSphere(geo.boundingSphere);
+
+    return geo;
+  }, [data]);
+
   const material = useMemo(() => getSharedChunkMaterial(), []);
-  
-  // World offset for this chunk
+  const waterMaterial = useMemo(() => getSharedWaterMaterial(), []);
+
   const worldX = position.x * CHUNK_SIZE;
   const worldZ = position.z * CHUNK_SIZE;
-  
-  // Cleanup geometry on unmount
+
   useEffect(() => {
     return () => {
       geometry.dispose();
+      waterGeometry?.dispose();
     };
-  }, [geometry]);
-  
-  // Store chunk info on mesh for raycasting and enable frustum culling
+  }, [geometry, waterGeometry]);
+
   useEffect(() => {
     if (meshRef.current) {
       meshRef.current.userData.chunkPosition = position;
       meshRef.current.userData.chunkData = data;
-      // Ensure frustum culling is enabled (it's on by default, but be explicit)
       meshRef.current.frustumCulled = true;
     }
   }, [position, data]);
-  
+
   return (
-    <mesh 
-      ref={meshRef} 
-      geometry={geometry} 
-      material={material} 
-      position={[worldX, 0, worldZ]}
-      frustumCulled={true}
-    />
+    <group position={[worldX, 0, worldZ]}>
+      <mesh
+        ref={meshRef}
+        geometry={geometry}
+        material={material}
+        frustumCulled={true}
+      />
+      {waterGeometry && (
+        <mesh
+          geometry={waterGeometry}
+          material={waterMaterial}
+          frustumCulled={true}
+          renderOrder={1}
+        />
+      )}
+    </group>
   );
 }

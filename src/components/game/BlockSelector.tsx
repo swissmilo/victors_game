@@ -4,7 +4,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores';
-import { raycastBlocks, setBlockAtWorld, BlockHit } from '@/lib/blockInteraction';
+import { raycastBlocks, setBlockAtWorld, spreadWater, BlockHit } from '@/lib/blockInteraction';
 import { BlockType } from '@/types';
 import { MISSILE_SITE_X, MISSILE_SITE_Y, MISSILE_SITE_Z } from '@/lib/worldGen';
 
@@ -246,19 +246,28 @@ export function BlockSelector({
       if (selectedSlot.blockType === BlockType.TELEPORTER) {
         addTeleporter({ x: blockX, y: blockY, z: blockZ });
       }
-      
+
+      // If placing water, spread it to nearby blocks
+      const dirtyKeys = new Set<string>([modifiedKey]);
+      if (selectedSlot.blockType === BlockType.WATER) {
+        const waterKeys = spreadWater(blockX, blockY, blockZ, chunksMap);
+        for (const k of waterKeys) dirtyKeys.add(k);
+      }
+
       // Remove from inventory
       removeFromInventory(hotbarSelection, 1);
-      
-      // Trigger chunk re-render
-      const chunk = chunks.get(modifiedKey);
-      if (chunk) {
-        const newData = new Uint8Array(chunk.data);
-        setChunk(chunk.position, {
-          ...chunk,
-          data: newData,
-          isDirty: true,
-        });
+
+      // Trigger chunk re-renders for all affected chunks
+      for (const key of dirtyKeys) {
+        const chunk = chunks.get(key);
+        if (chunk) {
+          const newData = new Uint8Array(chunk.data);
+          setChunk(chunk.position, {
+            ...chunk,
+            data: newData,
+            isDirty: true,
+          });
+        }
       }
     }
   }, [inventory, hotbarSelection, getChunksForRaycast, chunks, setChunk, removeFromInventory, addTeleporter]);

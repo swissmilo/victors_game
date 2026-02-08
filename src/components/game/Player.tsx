@@ -5,7 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useKeyboard } from '@/hooks';
 import { useGameStore, TeleporterPosition } from '@/stores';
-import { BLOCK_DEFINITIONS, BlockType, CHUNK_SIZE, getBlockFromChunk, chunkPositionToKey } from '@/types';
+import { BLOCK_DEFINITIONS, BlockType, CHUNK_SIZE, CHUNK_HEIGHT, getBlockFromChunk, chunkPositionToKey } from '@/types';
 import { PORTAL_LOCATIONS, PortalLocation } from '@/lib/worldGen';
 import { SHIP_WHEEL_OFFSET } from '@/lib/worldGen';
 
@@ -63,7 +63,7 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   
   // Get block type at world position
   const getBlockAt = useCallback((worldX: number, worldY: number, worldZ: number): BlockType => {
-    if (worldY < 0 || worldY >= 64) return BlockType.AIR;
+    if (worldY < 0 || worldY >= CHUNK_HEIGHT) return BlockType.AIR;
     
     const chunkX = Math.floor(worldX / CHUNK_SIZE);
     const chunkZ = Math.floor(worldZ / CHUNK_SIZE);
@@ -82,7 +82,7 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
   // Check if a world position contains a solid block
   const isBlockSolid = useCallback((worldX: number, worldY: number, worldZ: number): boolean => {
     if (worldY < 0) return true; // Below world is solid
-    if (worldY >= 64) return false; // Above world is air
+    if (worldY >= CHUNK_HEIGHT) return false; // Above world is air
     
     const block = getBlockAt(worldX, worldY, worldZ);
     const def = BLOCK_DEFINITIONS[block];

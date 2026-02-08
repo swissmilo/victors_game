@@ -308,7 +308,7 @@ const INITIAL_INVENTORY: InventorySlot[] = [
   { blockType: BlockType.PLANKS, count: 64 },
   { blockType: BlockType.COBBLESTONE, count: 64 },
   { blockType: BlockType.SAND, count: 64 },
-  { blockType: BlockType.LEAVES, count: 64 },
+  { blockType: BlockType.WATER, count: 64 },
   { blockType: BlockType.TELEPORTER, count: 64 },
 ];
 

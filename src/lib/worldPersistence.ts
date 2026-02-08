@@ -3,7 +3,7 @@
  * Uses Run-Length Encoding (RLE) compression to reduce storage size
  */
 
-import { BlockType } from '@/types';
+import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT } from '@/types';
 
 const WORLD_SAVE_KEY = 'victors_world_save';
 const WORLD_LIST_KEY = 'victors_world_list';
@@ -307,7 +307,8 @@ export function convertLoadedChunks(
   version: number = 1
 ): Map<string, { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }> {
   const chunks = new Map<string, { data: Uint8Array; position: { x: number; z: number }; isDirty: boolean }>();
-  const CHUNK_DATA_LENGTH = 16 * 16 * 64; // CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+  const LEGACY_CHUNK_DATA_LENGTH = CHUNK_SIZE * CHUNK_SIZE * 64;
+  const CHUNK_DATA_LENGTH = version >= 4 ? CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT : LEGACY_CHUNK_DATA_LENGTH;
   
   for (const saved of savedChunks) {
     let data: Uint8Array;
