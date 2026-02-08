@@ -124,7 +124,7 @@ export function raycastBlocks(
 /**
  * Get block at world coordinates
  */
-function getBlockAtWorld(
+export function getBlockAtWorld(
   x: number, 
   y: number, 
   z: number, 

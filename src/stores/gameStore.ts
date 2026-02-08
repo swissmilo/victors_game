@@ -118,6 +118,14 @@ interface GodzillaState {
   hasDestroyedBlocks: boolean; // Whether destruction has occurred this cycle
 }
 
+// Pirate ship state
+export interface PirateShipState {
+  position: [number, number, number];
+  rotation: number;           // Y-axis heading
+  velocity: number;           // Forward/backward speed
+  isPlayerSteering: boolean;
+}
+
 // Teleporter position
 export interface TeleporterPosition {
   x: number;
@@ -199,6 +207,9 @@ interface GameState {
   parkourLevel: number; // 1 or 2
   parkourCheckpoint: [number, number, number]; // Respawn position
 
+  // Pirate ship state
+  pirateShip: PirateShipState;
+
   // Nuclear Missile state
   missileState: 'idle' | 'launching' | 'flying' | 'exploded';
   missilePosition: [number, number, number];
@@ -273,6 +284,10 @@ interface GameState {
   setParkourLevel: (level: number) => void;
   respawnAtParkourCheckpoint: () => void;
 
+  // Pirate ship actions
+  updatePirateShip: (updates: Partial<PirateShipState>) => void;
+  resetPirateShip: () => void;
+
   // Nuclear Missile actions
   launchMissile: () => void;
   updateMissilePosition: (position: [number, number, number]) => void;
@@ -327,6 +342,12 @@ const SANDSTORM_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 // Godzilla configuration
 const GODZILLA_COUNTDOWN = CATASTROPHE_COUNTDOWN;
 const GODZILLA_HEIGHT = 84;  // Twice the mansion height (42 blocks)
+
+// Lake / Pirate ship configuration
+const LAKE_CENTER_X = -50;
+const LAKE_CENTER_Z = -50;
+const LAKE_RADIUS = 840;
+const LAKE_WATER_LEVEL = 28;
 
 const INITIAL_EARTHQUAKE: EarthquakeState = {
   phase: 'countdown',
@@ -385,6 +406,13 @@ const INITIAL_SANDSTORM: SandstormState = {
   sandPlaced: 0,
 };
 
+const INITIAL_PIRATE_SHIP: PirateShipState = {
+  position: [LAKE_CENTER_X, LAKE_WATER_LEVEL, LAKE_CENTER_Z],
+  rotation: 0,
+  velocity: 0,
+  isPlayerSteering: false,
+};
+
 const INITIAL_GODZILLA: GodzillaState = {
   phase: 'countdown',
   countdown: GODZILLA_COUNTDOWN,
@@ -426,6 +454,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   meteorShower: INITIAL_METEOR_SHOWER,
   sandstorm: INITIAL_SANDSTORM,
   godzilla: INITIAL_GODZILLA,
+  pirateShip: INITIAL_PIRATE_SHIP,
   zombies: [],
   targetedZombieId: null,
   isInBlackHoleParkour: false,
@@ -731,6 +760,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  // Pirate ship actions
+  updatePirateShip: (updates) => set((state) => ({
+    pirateShip: { ...state.pirateShip, ...updates },
+  })),
+
+  resetPirateShip: () => set({
+    pirateShip: INITIAL_PIRATE_SHIP,
+  }),
+
   // Nuclear Missile actions
   launchMissile: () => {
     // Add randomness to target (±5 blocks in X and Z around haunted house)
@@ -792,6 +830,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       sandstorm: INITIAL_SANDSTORM,
       godzilla: INITIAL_GODZILLA,
       zombies: saveData.zombies || [], // Load saved zombies or empty array
+      pirateShip: INITIAL_PIRATE_SHIP,
     });
 
     return true;
@@ -826,6 +865,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       sandstorm: INITIAL_SANDSTORM,
       godzilla: INITIAL_GODZILLA,
       zombies: [],
+      pirateShip: INITIAL_PIRATE_SHIP,
       missileState: 'idle',
       missilePosition: [5, 42, 0],
       missileTarget: [25, 37, 20],
@@ -834,4 +874,4 @@ export const useGameStore = create<GameState>((set, get) => ({
 }));
 
 // Export catastrophe constants for use in components
-export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN, GODZILLA_HEIGHT };
+export { EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BASE_WATER_LEVEL, MAX_WATER_LEVEL, BLOOD_RAIN_COUNTDOWN, BLOOD_RAIN_DURATION, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN, GODZILLA_HEIGHT, LAKE_CENTER_X, LAKE_CENTER_Z, LAKE_RADIUS, LAKE_WATER_LEVEL };

@@ -12,7 +12,8 @@ import { MobileControls } from '../ui/MobileControls';
 import { WorldMenu } from '../ui/WorldMenu';
 import { ZombieTargetIndicator } from '../ui/ZombieTargetIndicator';
 import { ParkourIndicator } from '../ui/ParkourIndicator';
-import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN } from '@/stores';
+import { useGameStore, EARTHQUAKE_COUNTDOWN, BLACK_HOLE_COUNTDOWN, TSUNAMI_COUNTDOWN, BLOOD_RAIN_COUNTDOWN, HURRICANE_COUNTDOWN, METEOR_SHOWER_COUNTDOWN, SANDSTORM_COUNTDOWN, GODZILLA_COUNTDOWN, LAKE_WATER_LEVEL } from '@/stores';
+import { SHIP_WHEEL_OFFSET } from '@/lib/worldGen';
 
 // Detect if running on touch device
 const isTouchDevice = () => {
@@ -35,6 +36,8 @@ export function Game() {
   const { consumeLookDelta, consumeTap, isHolding, holdDuration, isValidHoldForBreak, getHoldPosition } = useTouch(containerRef);
   const setIsPlaying = useGameStore((state) => state.setIsPlaying);
   const isFlying = useGameStore((state) => state.isFlying);
+  const pirateShip = useGameStore((state) => state.pirateShip);
+  const playerPosition = useGameStore((state) => state.playerPosition);
   const saveGame = useGameStore((state) => state.saveGame);
   const chunks = useGameStore((state) => state.chunks);
   const earthquake = useGameStore((state) => state.earthquake);
@@ -85,6 +88,18 @@ export function Game() {
 
   // Determine if sandstorm overlay should be active
   const isSandstormActive = currentCatastrophe === 'sandstorm' && sandstorm.phase !== 'countdown';
+
+  // Check if player is near pirate ship steering wheel (dynamic position)
+  const isNearShipWheel = (() => {
+    if (pirateShip.isPlayerSteering) return false;
+    const wheelX = pirateShip.position[0] + SHIP_WHEEL_OFFSET[0];
+    const wheelY = pirateShip.position[1] + SHIP_WHEEL_OFFSET[1];
+    const wheelZ = pirateShip.position[2] + SHIP_WHEEL_OFFSET[2];
+    const dx = playerPosition[0] - wheelX;
+    const dy = playerPosition[1] - wheelY;
+    const dz = playerPosition[2] - wheelZ;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz) < 4;
+  })();
 
   // Handle starting the game from menu
   const handleStartGame = useCallback(() => {
@@ -273,6 +288,16 @@ export function Game() {
           {isFlying && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500/80 text-white text-sm rounded">
               Flying
+            </div>
+          )}
+          {pirateShip.isPlayerSteering && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-700/80 text-white text-sm rounded">
+              Steering Ship (Shift to exit)
+            </div>
+          )}
+          {isNearShipWheel && (
+            <div className="absolute top-28 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-800/80 text-white text-sm rounded">
+              Press Shift to steer
             </div>
           )}
         </div>

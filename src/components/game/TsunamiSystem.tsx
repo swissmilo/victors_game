@@ -8,7 +8,7 @@ import { BlockType, CHUNK_SIZE, CHUNK_HEIGHT, setBlockInChunk, getBlockFromChunk
 
 // Tsunami timing configuration
 const RISE_DURATION = 8;      // Seconds to rise to max
-const PEAK_DURATION = 3;      // Seconds at peak
+const PEAK_DURATION = 60;     // Seconds at peak (long enough to see sea monsters)
 const FALL_DURATION = 5;      // Seconds to fall back down
 const RISE_SPEED = (MAX_WATER_LEVEL - BASE_WATER_LEVEL) / RISE_DURATION;
 const FALL_SPEED = (MAX_WATER_LEVEL - BASE_WATER_LEVEL) / FALL_DURATION;

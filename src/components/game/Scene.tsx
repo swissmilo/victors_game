@@ -18,6 +18,8 @@ import { GodzillaSystem } from './GodzillaSystem';
 import { ZombieSystem } from './ZombieSystem';
 import { BlackHoleParkour } from './BlackHoleParkour';
 import { NuclearMissileSystem } from './NuclearMissileSystem';
+import { SeaMonsters } from './SeaMonsters';
+import { PirateShipSystem } from './PirateShipSystem';
 import { useGameStore } from '@/stores';
 
 interface SceneProps {
@@ -143,6 +145,9 @@ export function Scene({
       {/* Black Hole Parkour - only shown when in parkour mode */}
       {isInBlackHoleParkour && <BlackHoleParkour />}
 
+      {/* Pirate ship - always present */}
+      {!isInBlackHoleParkour && <PirateShipSystem />}
+
       {/* Voxel world - hidden during parkour */}
       {!isInBlackHoleParkour && <World renderDistance={8} unloadDistance={12} />}
 
@@ -152,6 +157,7 @@ export function Scene({
           <EarthquakeSystem />
           <BlackHoleSystem />
           <TsunamiSystem />
+          {/* <SeaMonsters /> */}
           <BloodRainSystem />
           <HurricaneSystem />
           <MeteorShowerSystem />

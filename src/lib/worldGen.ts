@@ -21,6 +21,12 @@ const CAVE_SCALE = 0.055;
 const CAVE_THRESHOLD = 0.40;
 const CAVE_ENTRANCE_SCALE = 0.03;
 
+// Lake for pirate ship (large ocean)
+const LAKE_CENTER = { x: -50, z: -50 };
+const LAKE_RADIUS = 60;
+const LAKE_WATER_LEVEL = 28;
+const LAKE_FLOOR_LEVEL = 20;
+
 // Gothic Mansion location (near spawn)
 const MANSION_ORIGIN = { x: 25, z: 20 };
 const MANSION_WIDTH = 40;  // Total width including towers
@@ -760,6 +766,408 @@ function chunkContainsMissileSite(chunkWorldX: number, chunkWorldZ: number): boo
 /**
  * Check if a chunk could contain part of the haunted mansion
  */
+/**
+ * Check if a chunk overlaps the lake area
+ */
+function chunkContainsLake(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const chunkMinX = chunkWorldX;
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMinZ = chunkWorldZ;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  // Check if any corner of the chunk is within lake radius + margin
+  const margin = CHUNK_SIZE; // Extra margin to catch edges
+  const lakeMinX = LAKE_CENTER.x - LAKE_RADIUS - margin;
+  const lakeMaxX = LAKE_CENTER.x + LAKE_RADIUS + margin;
+  const lakeMinZ = LAKE_CENTER.z - LAKE_RADIUS - margin;
+  const lakeMaxZ = LAKE_CENTER.z + LAKE_RADIUS + margin;
+
+  return !(chunkMaxX < lakeMinX || chunkMinX > lakeMaxX ||
+           chunkMaxZ < lakeMinZ || chunkMinZ > lakeMaxZ);
+}
+
+/**
+ * Carve a lake into existing chunk terrain
+ */
+function generateLakeInChunk(chunk: ChunkData, chunkWorldX: number, chunkWorldZ: number): void {
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      const wx = chunkWorldX + x;
+      const wz = chunkWorldZ + z;
+      const dx = wx - LAKE_CENTER.x;
+      const dz = wz - LAKE_CENTER.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      if (dist > LAKE_RADIUS + 3) continue; // Outside lake area entirely
+
+      if (dist <= LAKE_RADIUS) {
+        // Inside lake - carve basin and fill with water
+        // Shore transition: sand ring at radius 25-30
+        const shoreStart = LAKE_RADIUS - 5;
+        const isShore = dist > shoreStart;
+
+        // Interpolate floor level for gradual shore slope
+        let floorLevel = LAKE_FLOOR_LEVEL;
+        if (isShore) {
+          const shoreT = (dist - shoreStart) / (LAKE_RADIUS - shoreStart);
+          const terrainHeight = getTerrainHeightAt(wx, wz);
+          floorLevel = Math.floor(LAKE_FLOOR_LEVEL + (terrainHeight - LAKE_FLOOR_LEVEL) * shoreT);
+        }
+
+        for (let y = 0; y < CHUNK_HEIGHT; y++) {
+          if (y <= floorLevel) {
+            // Keep terrain below floor (stone/dirt)
+            if (y === floorLevel) {
+              setBlockInChunk(chunk, x, y, z, BlockType.SAND);
+            }
+            // else leave existing terrain
+          } else if (y <= LAKE_WATER_LEVEL) {
+            // Fill with water
+            setBlockInChunk(chunk, x, y, z, BlockType.WATER);
+          } else {
+            // Clear above water level
+            setBlockInChunk(chunk, x, y, z, BlockType.AIR);
+          }
+        }
+      } else {
+        // Just outside lake - sand beach (radius 30-33)
+        const terrainHeight = getTerrainHeightAt(wx, wz);
+        if (terrainHeight <= LAKE_WATER_LEVEL + 3) {
+          setBlockInChunk(chunk, x, terrainHeight, z, BlockType.SAND);
+          if (terrainHeight > 0) {
+            setBlockInChunk(chunk, x, terrainHeight - 1, z, BlockType.SAND);
+          }
+        }
+      }
+    }
+  }
+}
+
+// ===== PIRATE SHIP =====
+let shipOrigin = { x: -50, z: -50 }; // Center of ship at lake center (dynamic, updated when ship moves)
+
+/** Update ship origin when the ship moves - affects chunk generation */
+export function updateShipOrigin(x: number, z: number): void {
+  shipOrigin = { x, z };
+}
+const SHIP_LENGTH = 35;    // Z axis
+const SHIP_HALF_LENGTH = 17;
+const SHIP_DECK_Y = LAKE_WATER_LEVEL + 1; // Deck just above water
+
+/** Hull half-width at a given local Z position (-17 to +17) */
+function getHullHalfWidth(localZ: number): number {
+  const absZ = Math.abs(localZ);
+  if (localZ > 13) return Math.max(1, Math.floor(7 - (localZ - 13) * 1.5)); // Bow taper
+  if (localZ > 5) return 6; // Midship
+  if (localZ > -5) return 6; // Midship
+  if (localZ > -13) return 6; // Aft
+  return Math.max(3, Math.floor(6 - (Math.abs(localZ) - 13) * 0.7)); // Stern taper
+}
+
+/** Hull depth below deck at a given local Z */
+function getHullDepth(localZ: number): number {
+  const absZ = Math.abs(localZ);
+  if (absZ > 15) return 3;
+  if (absZ > 10) return 4;
+  return 5; // Deepest in center
+}
+
+function chunkContainsShip(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const shipMinX = shipOrigin.x - 10;
+  const shipMaxX = shipOrigin.x + 10;
+  const shipMinZ = shipOrigin.z - SHIP_HALF_LENGTH - 5;
+  const shipMaxZ = shipOrigin.z + SHIP_HALF_LENGTH + 8; // Extra for bowsprit
+
+  const chunkMinX = chunkWorldX;
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMinZ = chunkWorldZ;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  return !(chunkMaxX < shipMinX || chunkMinX > shipMaxX ||
+           chunkMaxZ < shipMinZ || chunkMinZ > shipMaxZ);
+}
+
+function generatePirateShipInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  const shipX = shipOrigin.x;
+  const shipZ = shipOrigin.z;
+  const deckY = SHIP_DECK_Y;
+
+  const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
+    const localX = wx - chunkWorldX;
+    const localZ = wz - chunkWorldZ;
+    if (localX >= 0 && localX < CHUNK_SIZE &&
+        localZ >= 0 && localZ < CHUNK_SIZE &&
+        wy >= 0 && wy < CHUNK_HEIGHT) {
+      setBlockInChunk(chunk, localX, wy, localZ, block);
+    }
+  };
+
+  // === HULL (solid interior) ===
+  for (let lz = -SHIP_HALF_LENGTH; lz <= SHIP_HALF_LENGTH; lz++) {
+    const halfW = getHullHalfWidth(lz);
+    const depth = getHullDepth(lz);
+
+    for (let lx = -halfW; lx <= halfW; lx++) {
+      for (let dy = -depth; dy <= 0; dy++) {
+        const wx = shipX + lx;
+        const wy = deckY + dy;
+        const wz = shipZ + lz;
+
+        const isEdgeX = Math.abs(lx) === halfW;
+        const isBottom = dy === -depth;
+        const isTop = dy === 0;
+
+        if (isEdgeX || isBottom) {
+          // Hull shell
+          placeBlock(wx, wy, wz, BlockType.WOOD);
+        } else if (isTop) {
+          // Deck
+          placeBlock(wx, wy, wz, BlockType.PLANKS);
+        } else {
+          // Solid interior (so you can walk inside)
+          placeBlock(wx, wy, wz, BlockType.PLANKS);
+        }
+      }
+    }
+  }
+
+  // Bow point (extra blocks for sharp front)
+  for (let bz = SHIP_HALF_LENGTH + 1; bz <= SHIP_HALF_LENGTH + 4; bz++) {
+    const bowWidth = Math.max(0, 2 - (bz - SHIP_HALF_LENGTH - 1));
+    for (let bx = -bowWidth; bx <= bowWidth; bx++) {
+      placeBlock(shipX + bx, deckY, shipZ + bz, BlockType.WOOD);
+      placeBlock(shipX + bx, deckY - 1, shipZ + bz, BlockType.WOOD);
+      placeBlock(shipX + bx, deckY - 2, shipZ + bz, BlockType.WOOD);
+    }
+  }
+
+  // Stern transom (flat back wall)
+  for (let lx = -4; lx <= 4; lx++) {
+    for (let dy = -3; dy <= 4; dy++) {
+      placeBlock(shipX + lx, deckY + dy, shipZ - SHIP_HALF_LENGTH, BlockType.WOOD);
+    }
+  }
+
+  // === RAILINGS (single row of blocks along deck edges) ===
+  for (let lz = -SHIP_HALF_LENGTH + 1; lz <= SHIP_HALF_LENGTH; lz++) {
+    const halfW = getHullHalfWidth(lz);
+    if (halfW >= 2) {
+      placeBlock(shipX + halfW, deckY + 1, shipZ + lz, BlockType.WOOD);
+      placeBlock(shipX - halfW, deckY + 1, shipZ + lz, BlockType.WOOD);
+    }
+  }
+
+  // === STERN CASTLE (raised back section) ===
+  const sternCastleDeckY = deckY + 3;
+  for (let lz = -SHIP_HALF_LENGTH + 1; lz <= -5; lz++) {
+    const halfW = getHullHalfWidth(lz);
+    for (let lx = -halfW + 1; lx <= halfW - 1; lx++) {
+      // Solid platform
+      placeBlock(shipX + lx, sternCastleDeckY, shipZ + lz, BlockType.PLANKS);
+      // Support columns at edges
+      if (lz === -5 && (Math.abs(lx) === halfW - 1)) {
+        for (let sy = 1; sy < 3; sy++) {
+          placeBlock(shipX + lx, deckY + sy, shipZ + lz, BlockType.WOOD);
+        }
+      }
+    }
+    // Stern castle railings
+    if (halfW >= 2) {
+      placeBlock(shipX + halfW - 1, sternCastleDeckY + 1, shipZ + lz, BlockType.WOOD);
+      placeBlock(shipX - halfW + 1, sternCastleDeckY + 1, shipZ + lz, BlockType.WOOD);
+    }
+  }
+
+  // Steps up to stern castle
+  placeBlock(shipX - 1, deckY + 1, shipZ - 5, BlockType.PLANKS);
+  placeBlock(shipX, deckY + 1, shipZ - 5, BlockType.PLANKS);
+  placeBlock(shipX + 1, deckY + 1, shipZ - 5, BlockType.PLANKS);
+  placeBlock(shipX - 1, deckY + 2, shipZ - 6, BlockType.PLANKS);
+  placeBlock(shipX, deckY + 2, shipZ - 6, BlockType.PLANKS);
+  placeBlock(shipX + 1, deckY + 2, shipZ - 6, BlockType.PLANKS);
+
+  // === CAPTAIN'S CABIN (enclosed room on stern castle) ===
+  const cabinY = sternCastleDeckY;
+  // Side walls
+  for (let lz = -SHIP_HALF_LENGTH + 1; lz <= -8; lz++) {
+    for (let cy = 1; cy <= 3; cy++) {
+      placeBlock(shipX + 4, cabinY + cy, shipZ + lz, BlockType.WOOD);
+      placeBlock(shipX - 4, cabinY + cy, shipZ + lz, BlockType.WOOD);
+    }
+  }
+  // Back wall
+  for (let lx = -4; lx <= 4; lx++) {
+    for (let cy = 1; cy <= 3; cy++) {
+      // Windows in back wall
+      if (cy === 2 && Math.abs(lx) >= 1 && Math.abs(lx) <= 3 && Math.abs(lx) % 2 === 1) {
+        continue; // Leave window opening
+      }
+      placeBlock(shipX + lx, cabinY + cy, shipZ - SHIP_HALF_LENGTH + 1, BlockType.WOOD);
+    }
+  }
+  // Cabin roof
+  for (let lx = -5; lx <= 5; lx++) {
+    for (let lz = -SHIP_HALF_LENGTH + 1; lz <= -7; lz++) {
+      placeBlock(shipX + lx, cabinY + 4, shipZ + lz, BlockType.PLANKS);
+    }
+  }
+  // Cabin door opening
+  placeBlock(shipX, cabinY + 1, shipZ - 7, BlockType.AIR);
+  placeBlock(shipX, cabinY + 2, shipZ - 7, BlockType.AIR);
+
+  // === POOP DECK (open upper deck above cabin) ===
+  const poopDeckY = cabinY + 5;
+  for (let lx = -5; lx <= 5; lx++) {
+    for (let lz = -SHIP_HALF_LENGTH + 1; lz <= -7; lz++) {
+      placeBlock(shipX + lx, poopDeckY, shipZ + lz, BlockType.PLANKS);
+    }
+  }
+  // Poop deck railings
+  for (let lz = -SHIP_HALF_LENGTH + 1; lz <= -7; lz++) {
+    placeBlock(shipX + 5, poopDeckY + 1, shipZ + lz, BlockType.WOOD);
+    placeBlock(shipX - 5, poopDeckY + 1, shipZ + lz, BlockType.WOOD);
+  }
+  // Back railing
+  for (let lx = -5; lx <= 5; lx++) {
+    placeBlock(shipX + lx, poopDeckY + 1, shipZ - SHIP_HALF_LENGTH + 1, BlockType.WOOD);
+  }
+  // Steps from stern castle to poop deck
+  placeBlock(shipX - 1, cabinY + 2, shipZ - 7, BlockType.PLANKS);
+  placeBlock(shipX + 1, cabinY + 2, shipZ - 7, BlockType.PLANKS);
+  placeBlock(shipX - 1, cabinY + 3, shipZ - 8, BlockType.PLANKS);
+  placeBlock(shipX + 1, cabinY + 3, shipZ - 8, BlockType.PLANKS);
+  placeBlock(shipX - 1, cabinY + 4, shipZ - 9, BlockType.PLANKS);
+  placeBlock(shipX + 1, cabinY + 4, shipZ - 9, BlockType.PLANKS);
+
+  // === STEERING WHEEL (at front of ship on main deck) ===
+  // Wheel post
+  placeBlock(shipX, deckY + 1, shipZ + 15, BlockType.WOOD);
+  placeBlock(shipX, deckY + 2, shipZ + 15, BlockType.WOOD);
+
+  // === MASTS ===
+  // Foremast (front) at z+8
+  for (let my = 1; my <= 18; my++) {
+    placeBlock(shipX, deckY + my, shipZ + 8, BlockType.WOOD);
+  }
+  // Mainmast (center) at z=0 - tallest
+  for (let my = 1; my <= 22; my++) {
+    placeBlock(shipX, deckY + my, shipZ, BlockType.WOOD);
+  }
+  // Mizzenmast (aft) at z-8 (on stern castle)
+  for (let my = 1; my <= 16; my++) {
+    placeBlock(shipX, sternCastleDeckY + my, shipZ - 10, BlockType.WOOD);
+  }
+
+  // === YARDARMS (horizontal beams) ===
+  // Foremast yards
+  for (let yx = -5; yx <= 5; yx++) {
+    placeBlock(shipX + yx, deckY + 10, shipZ + 8, BlockType.WOOD);
+    placeBlock(shipX + yx, deckY + 16, shipZ + 8, BlockType.WOOD);
+  }
+  // Mainmast yards
+  for (let yx = -6; yx <= 6; yx++) {
+    placeBlock(shipX + yx, deckY + 11, shipZ, BlockType.WOOD);
+  }
+  for (let yx = -5; yx <= 5; yx++) {
+    placeBlock(shipX + yx, deckY + 17, shipZ, BlockType.WOOD);
+  }
+  for (let yx = -3; yx <= 3; yx++) {
+    placeBlock(shipX + yx, deckY + 22, shipZ, BlockType.WOOD);
+  }
+  // Mizzenmast yards
+  for (let yx = -4; yx <= 4; yx++) {
+    placeBlock(shipX + yx, sternCastleDeckY + 10, shipZ - 10, BlockType.WOOD);
+    placeBlock(shipX + yx, sternCastleDeckY + 15, shipZ - 10, BlockType.WOOD);
+  }
+
+  // === SAILS (sand-colored) ===
+  // Foremast sails
+  for (let sx = -4; sx <= 4; sx++) {
+    for (let sy = 0; sy < 5; sy++) {
+      placeBlock(shipX + sx, deckY + 5 + sy, shipZ + 8, BlockType.SAND);
+      placeBlock(shipX + sx, deckY + 11 + sy, shipZ + 8, BlockType.SAND);
+    }
+  }
+  // Mainmast sails
+  for (let sx = -5; sx <= 5; sx++) {
+    for (let sy = 0; sy < 6; sy++) {
+      placeBlock(shipX + sx, deckY + 5 + sy, shipZ, BlockType.SAND);
+    }
+  }
+  for (let sx = -4; sx <= 4; sx++) {
+    for (let sy = 0; sy < 5; sy++) {
+      placeBlock(shipX + sx, deckY + 12 + sy, shipZ, BlockType.SAND);
+    }
+  }
+  for (let sx = -2; sx <= 2; sx++) {
+    for (let sy = 0; sy < 4; sy++) {
+      placeBlock(shipX + sx, deckY + 18 + sy, shipZ, BlockType.SAND);
+    }
+  }
+  // Mizzenmast sails
+  for (let sx = -3; sx <= 3; sx++) {
+    for (let sy = 0; sy < 5; sy++) {
+      placeBlock(shipX + sx, sternCastleDeckY + 5 + sy, shipZ - 10, BlockType.SAND);
+      placeBlock(shipX + sx, sternCastleDeckY + 11 + sy, shipZ - 10, BlockType.SAND);
+    }
+  }
+
+  // === CROW'S NEST (on mainmast) ===
+  for (let cx = -1; cx <= 1; cx++) {
+    for (let cz = -1; cz <= 1; cz++) {
+      placeBlock(shipX + cx, deckY + 22, shipZ + cz, BlockType.PLANKS);
+    }
+    placeBlock(shipX + cx, deckY + 23, shipZ - 1, BlockType.WOOD);
+    placeBlock(shipX + cx, deckY + 23, shipZ + 1, BlockType.WOOD);
+  }
+  placeBlock(shipX - 1, deckY + 23, shipZ, BlockType.WOOD);
+  placeBlock(shipX + 1, deckY + 23, shipZ, BlockType.WOOD);
+
+  // === PIRATE FLAG (top of mainmast) ===
+  placeBlock(shipX, deckY + 23, shipZ, BlockType.WOOD); // Flag pole
+  placeBlock(shipX, deckY + 24, shipZ, BlockType.WOOD);
+  // Flag (using obsidian for black)
+  placeBlock(shipX + 1, deckY + 24, shipZ, BlockType.OBSIDIAN);
+  placeBlock(shipX + 2, deckY + 24, shipZ, BlockType.OBSIDIAN);
+  placeBlock(shipX + 1, deckY + 23, shipZ, BlockType.OBSIDIAN);
+  placeBlock(shipX + 2, deckY + 23, shipZ, BlockType.OBSIDIAN);
+
+  // === CANNONS (metal blocks poking out of hull) ===
+  for (let ci = 0; ci < 3; ci++) {
+    const cz = shipZ - 4 + ci * 6;
+    const halfW = getHullHalfWidth(-4 + ci * 6);
+    placeBlock(shipX + halfW + 1, deckY, cz, BlockType.METAL);
+    placeBlock(shipX - halfW - 1, deckY, cz, BlockType.METAL);
+    placeBlock(shipX + halfW, deckY - 1, cz, BlockType.COBBLESTONE);
+    placeBlock(shipX - halfW, deckY - 1, cz, BlockType.COBBLESTONE);
+  }
+
+  // === BOWSPRIT (forward beam) ===
+  for (let bz = SHIP_HALF_LENGTH + 5; bz <= SHIP_HALF_LENGTH + 8; bz++) {
+    placeBlock(shipX, deckY + 1, shipZ + bz, BlockType.WOOD);
+  }
+
+  // === ANCHOR (left side) ===
+  placeBlock(shipX - 7, deckY, shipZ + 10, BlockType.METAL);
+  placeBlock(shipX - 7, deckY - 1, shipZ + 10, BlockType.METAL);
+  placeBlock(shipX - 7, deckY - 2, shipZ + 10, BlockType.METAL);
+}
+
+// Ship bounding box relative to deck Y and ship origin (for movement)
+export const SHIP_BBOX = {
+  minX: -10, maxX: 10,
+  minY: -5, maxY: 25,   // relative to deckY
+  minZ: -17, maxZ: 25,  // relative to shipZ (stern to bowsprit)
+};
+
+// Ship wheel offset from pirateShip.position (which is at [shipX, LAKE_WATER_LEVEL, shipZ])
+export const SHIP_WHEEL_OFFSET: [number, number, number] = [0, SHIP_DECK_Y - LAKE_WATER_LEVEL + 2, 15];
+
+
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
   const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
   const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 20;  // Include tank
@@ -848,6 +1256,16 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   // Add missile launch pad and control panel if this chunk contains it
   if (chunkContainsMissileSite(worldX, worldZ)) {
     generateMissileSiteInChunk(chunk, worldX, worldZ);
+  }
+
+  // Carve lake for pirate ship
+  if (chunkContainsLake(worldX, worldZ)) {
+    generateLakeInChunk(chunk, worldX, worldZ);
+  }
+
+  // Add pirate ship if this chunk overlaps with it
+  if (chunkContainsShip(worldX, worldZ)) {
+    generatePirateShipInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;

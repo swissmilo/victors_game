@@ -7,6 +7,7 @@ import { useKeyboard } from '@/hooks';
 import { useGameStore, TeleporterPosition } from '@/stores';
 import { BLOCK_DEFINITIONS, BlockType, CHUNK_SIZE, getBlockFromChunk, chunkPositionToKey } from '@/types';
 import { PORTAL_LOCATIONS, PortalLocation } from '@/lib/worldGen';
+import { SHIP_WHEEL_OFFSET } from '@/lib/worldGen';
 
 const MOVE_SPEED = 10;
 const FLY_SPEED = 15;
@@ -283,6 +284,27 @@ export function Player({ isLocked, consumeMovement, isMobile = false, consumeLoo
       // Update store
       setPlayerPosition([positionRef.current.x, positionRef.current.y, positionRef.current.z]);
       return; // Skip normal physics
+    }
+
+    // Check if player is steering the pirate ship
+    const pirateShip = useGameStore.getState().pirateShip;
+    if (pirateShip.isPlayerSteering) {
+      // Lock player to the steering wheel position (dynamic, follows ship)
+      const wheelX = pirateShip.position[0] + SHIP_WHEEL_OFFSET[0];
+      const wheelY = pirateShip.position[1] + SHIP_WHEEL_OFFSET[1];
+      const wheelZ = pirateShip.position[2] + SHIP_WHEEL_OFFSET[2];
+
+      positionRef.current.set(wheelX, wheelY, wheelZ);
+      velocityRef.current.set(0, 0, 0);
+
+      // Update camera position and rotation
+      camera.position.set(wheelX, wheelY + EYE_HEIGHT, wheelZ);
+      const euler = new THREE.Euler(pitchRef.current, yawRef.current, 0, 'YXZ');
+      camera.quaternion.setFromEuler(euler);
+
+      // Update store
+      setPlayerPosition([wheelX, wheelY, wheelZ]);
+      return; // Skip normal movement
     }
 
     // Calculate movement direction (normal gameplay)

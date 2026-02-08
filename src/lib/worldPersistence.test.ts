@@ -74,7 +74,7 @@ describe('worldPersistence', () => {
         )?.[1] || '{}'
       );
       
-      expect(savedData.version).toBe(2); // Version 2 uses RLE compression
+      expect(savedData.version).toBe(3); // Version 3 adds zombie data
       expect(savedData.playerPosition).toEqual([10, 50, 20]);
       expect(savedData.playerRotation).toEqual([0.5, 0.5]);
       expect(savedData.chunks).toHaveLength(1);

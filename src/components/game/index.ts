@@ -12,3 +12,5 @@ export { SandstormSystem } from './SandstormSystem';
 export { GodzillaSystem } from './GodzillaSystem';
 export { ZombieSystem } from './ZombieSystem';
 export { BlackHoleParkour } from './BlackHoleParkour';
+export { SeaMonsters } from './SeaMonsters';
+export { PirateShipSystem } from './PirateShipSystem';
