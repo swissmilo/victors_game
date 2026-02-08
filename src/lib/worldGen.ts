@@ -11,6 +11,7 @@ import {
   setBlockInChunk,
 } from '@/types';
 import { CASTLE_WIDTH, CASTLE_HEIGHT, CASTLE_DEPTH, getCastleBlock } from './castleData';
+import { WATERPARK_WIDTH, WATERPARK_HEIGHT, WATERPARK_DEPTH, getWaterparkBlock } from './waterparkData';
 
 const SEA_LEVEL = 32;
 const BASE_HEIGHT = 25;
@@ -1220,6 +1221,48 @@ function generateCastleInChunk(chunk: ChunkData, chunkWorldX: number, chunkWorld
 
 }
 
+// ===== IMPORTED WATERPARK =====
+const WATERPARK_ORIGIN = { x: -300, z: 100 };
+const WATERPARK_BASE_Y = 28; // Place at terrain level
+
+function chunkContainsWaterpark(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const margin = CHUNK_SIZE;
+  const minX = WATERPARK_ORIGIN.x - margin;
+  const maxX = WATERPARK_ORIGIN.x + WATERPARK_WIDTH + margin;
+  const minZ = WATERPARK_ORIGIN.z - margin;
+  const maxZ = WATERPARK_ORIGIN.z + WATERPARK_DEPTH + margin;
+
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  return !(chunkMaxX < minX || chunkWorldX > maxX ||
+           chunkMaxZ < minZ || chunkWorldZ > maxZ);
+}
+
+function generateWaterparkInChunk(chunk: ChunkData, chunkWorldX: number, chunkWorldZ: number): void {
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      const wx = chunkWorldX + x;
+      const wz = chunkWorldZ + z;
+
+      const parkX = wx - WATERPARK_ORIGIN.x;
+      const parkZ = wz - WATERPARK_ORIGIN.z;
+
+      if (parkX < 0 || parkX >= WATERPARK_WIDTH || parkZ < 0 || parkZ >= WATERPARK_DEPTH) continue;
+
+      for (let parkY = 0; parkY < WATERPARK_HEIGHT; parkY++) {
+        const block = getWaterparkBlock(parkX, parkY, parkZ);
+        if (block === 0) continue;
+
+        const worldY = WATERPARK_BASE_Y + parkY;
+        if (worldY < 0 || worldY >= CHUNK_HEIGHT) continue;
+
+        setBlockInChunk(chunk, x, worldY, z, block as BlockType);
+      }
+    }
+  }
+}
+
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
   const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
   const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 20;  // Include tank
@@ -1323,6 +1366,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   // Add imported Dark Fantasy Castle
   if (chunkContainsCastle(worldX, worldZ)) {
     generateCastleInChunk(chunk, worldX, worldZ);
+  }
+
+  // Add imported Waterpark
+  if (chunkContainsWaterpark(worldX, worldZ)) {
+    generateWaterparkInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;
