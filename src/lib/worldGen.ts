@@ -1263,6 +1263,309 @@ function generateWaterparkInChunk(chunk: ChunkData, chunkWorldX: number, chunkWo
   }
 }
 
+// ===== SPACE ROCKET =====
+const ROCKET_ORIGIN = { x: 200, z: 50 };
+const ROCKET_PAD_Y = 30;
+
+function chunkContainsRocket(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const minX = ROCKET_ORIGIN.x - 14;
+  const maxX = ROCKET_ORIGIN.x + 16; // Extra for scaffolding tower
+  const minZ = ROCKET_ORIGIN.z - 14;
+  const maxZ = ROCKET_ORIGIN.z + 14;
+
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  return !(chunkMaxX < minX || chunkWorldX > maxX ||
+           chunkMaxZ < minZ || chunkWorldZ > maxZ);
+}
+
+function generateRocketInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  const rX = ROCKET_ORIGIN.x;
+  const rZ = ROCKET_ORIGIN.z;
+  const padY = ROCKET_PAD_Y;
+
+  const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
+    const localX = wx - chunkWorldX;
+    const localZ = wz - chunkWorldZ;
+    if (localX >= 0 && localX < CHUNK_SIZE &&
+        localZ >= 0 && localZ < CHUNK_SIZE &&
+        wy >= 0 && wy < CHUNK_HEIGHT) {
+      setBlockInChunk(chunk, localX, wy, localZ, block);
+    }
+  };
+
+  // Helper: place a circle of blocks (hollow = ring only)
+  const placeCircle = (cx: number, y: number, cz: number, r: number, block: BlockType, hollow: boolean) => {
+    const rSq = r * r;
+    const innerSq = (r - 1) * (r - 1);
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        const dSq = dx * dx + dz * dz;
+        if (dSq <= rSq) {
+          if (hollow && dSq < innerSq) continue;
+          placeBlock(cx + dx, y, cz + dz, block);
+        }
+      }
+    }
+  };
+
+  // ===== LAUNCH PAD (22x22 metal platform) =====
+  for (let dx = -11; dx <= 11; dx++) {
+    for (let dz = -11; dz <= 11; dz++) {
+      placeBlock(rX + dx, padY, rZ + dz, BlockType.METAL);
+    }
+  }
+  // Pad border
+  for (let dx = -11; dx <= 11; dx++) {
+    placeBlock(rX + dx, padY, rZ - 11, BlockType.STONE);
+    placeBlock(rX + dx, padY, rZ + 11, BlockType.STONE);
+  }
+  for (let dz = -11; dz <= 11; dz++) {
+    placeBlock(rX - 11, padY, rZ + dz, BlockType.STONE);
+    placeBlock(rX + 11, padY, rZ + dz, BlockType.STONE);
+  }
+  // Support pillars under pad
+  for (const dx of [-11, -5, 0, 5, 11]) {
+    for (const dz of [-11, -5, 0, 5, 11]) {
+      if (Math.abs(dx) < 5 && Math.abs(dz) < 5) continue;
+      const th = getTerrainHeightAt(rX + dx, rZ + dz);
+      for (let y = th; y < padY; y++) {
+        placeBlock(rX + dx, y, rZ + dz, BlockType.METAL);
+      }
+    }
+  }
+
+  // ===== ENGINE NOZZLES (MAGMA) =====
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (dx * dx + dz * dz <= 5) {
+        placeBlock(rX + dx, padY + 1, rZ + dz, BlockType.MAGMA);
+      }
+    }
+  }
+  // Engine bell housing
+  placeCircle(rX, padY + 2, rZ, 5, BlockType.ANDESITE_BLOCK, true);
+  placeCircle(rX, padY + 3, rZ, 5, BlockType.ANDESITE_BLOCK, true);
+
+  // ===== STAGE 1 (S-IC) - r=5, 25 blocks tall =====
+  const s1Start = padY + 4;
+  const s1H = 25;
+  const s1R = 5;
+  for (let dy = 0; dy < s1H; dy++) {
+    placeCircle(rX, s1Start + dy, rZ, s1R, BlockType.SNOW, true);
+    // Interior floors every 8 blocks
+    if (dy > 0 && dy % 8 === 0) {
+      for (let dx = -(s1R - 2); dx <= (s1R - 2); dx++) {
+        for (let dz = -(s1R - 2); dz <= (s1R - 2); dz++) {
+          if (dx * dx + dz * dz < (s1R - 1) * (s1R - 1)) {
+            placeBlock(rX + dx, s1Start + dy, rZ + dz, BlockType.PLANKS);
+          }
+        }
+      }
+    }
+  }
+  // Vertical black stripes on Stage 1
+  for (let dy = 4; dy < s1H - 2; dy++) {
+    placeBlock(rX, s1Start + dy, rZ + s1R, BlockType.OBSIDIAN);
+    placeBlock(rX, s1Start + dy, rZ - s1R, BlockType.OBSIDIAN);
+  }
+
+  // ===== FINS (4 at base of Stage 1) =====
+  for (let fh = 0; fh < 6; fh++) {
+    const fw = Math.max(1, 3 - Math.floor(fh / 2));
+    const fy = s1Start + fh;
+    for (let fi = 0; fi < fw; fi++) {
+      placeBlock(rX + s1R + 1 + fi, fy, rZ, BlockType.ANDESITE_BLOCK);
+      placeBlock(rX - s1R - 1 - fi, fy, rZ, BlockType.ANDESITE_BLOCK);
+      placeBlock(rX, fy, rZ + s1R + 1 + fi, BlockType.ANDESITE_BLOCK);
+      placeBlock(rX, fy, rZ - s1R - 1 - fi, BlockType.ANDESITE_BLOCK);
+    }
+  }
+
+  // ===== ORANGE BAND 1 =====
+  const b1Y = s1Start + s1H;
+  placeCircle(rX, b1Y, rZ, s1R, BlockType.ORANGE_GLASS, true);
+  placeCircle(rX, b1Y + 1, rZ, s1R, BlockType.ORANGE_GLASS, true);
+
+  // ===== STAGE 2 (S-II) - r=4, 18 blocks tall =====
+  const s2Start = b1Y + 2;
+  const s2H = 18;
+  const s2R = 4;
+  for (let dy = 0; dy < s2H; dy++) {
+    placeCircle(rX, s2Start + dy, rZ, s2R, BlockType.SNOW, true);
+    if (dy > 0 && dy % 8 === 0) {
+      for (let dx = -(s2R - 2); dx <= (s2R - 2); dx++) {
+        for (let dz = -(s2R - 2); dz <= (s2R - 2); dz++) {
+          if (dx * dx + dz * dz < (s2R - 1) * (s2R - 1)) {
+            placeBlock(rX + dx, s2Start + dy, rZ + dz, BlockType.PLANKS);
+          }
+        }
+      }
+    }
+  }
+  // Vertical stripes on Stage 2
+  for (let dy = 2; dy < s2H - 2; dy++) {
+    placeBlock(rX + s2R, s2Start + dy, rZ, BlockType.OBSIDIAN);
+    placeBlock(rX - s2R, s2Start + dy, rZ, BlockType.OBSIDIAN);
+  }
+
+  // ===== ORANGE BAND 2 =====
+  const b2Y = s2Start + s2H;
+  placeCircle(rX, b2Y, rZ, s2R, BlockType.ORANGE_GLASS, true);
+  placeCircle(rX, b2Y + 1, rZ, s2R, BlockType.ORANGE_GLASS, true);
+
+  // ===== STAGE 3 (S-IVB) - r=3, 12 blocks tall =====
+  const s3Start = b2Y + 2;
+  const s3H = 12;
+  const s3R = 3;
+  for (let dy = 0; dy < s3H; dy++) {
+    placeCircle(rX, s3Start + dy, rZ, s3R, BlockType.SNOW, true);
+  }
+
+  // ===== SERVICE MODULE - r=3, 8 blocks =====
+  const smStart = s3Start + s3H;
+  const smH = 8;
+  placeCircle(rX, smStart, rZ, s3R, BlockType.ORANGE_GLASS, true); // Orange band at base
+  for (let dy = 1; dy < smH; dy++) {
+    placeCircle(rX, smStart + dy, rZ, s3R, BlockType.SNOW, true);
+  }
+  // Windows on service module
+  const winY = smStart + 4;
+  placeBlock(rX + s3R, winY, rZ, BlockType.BLACK_GLASS);
+  placeBlock(rX - s3R, winY, rZ, BlockType.BLACK_GLASS);
+  placeBlock(rX, winY, rZ + s3R, BlockType.BLACK_GLASS);
+  placeBlock(rX, winY, rZ - s3R, BlockType.BLACK_GLASS);
+  placeBlock(rX + s3R, winY + 1, rZ, BlockType.BLACK_GLASS);
+  placeBlock(rX - s3R, winY + 1, rZ, BlockType.BLACK_GLASS);
+  placeBlock(rX, winY + 1, rZ + s3R, BlockType.BLACK_GLASS);
+  placeBlock(rX, winY + 1, rZ - s3R, BlockType.BLACK_GLASS);
+
+  // ===== NOSE CONE (tapered) =====
+  const coneStart = smStart + smH;
+  for (let dy = 0; dy < 10; dy++) {
+    const cR = Math.max(1, Math.floor(3 - dy * 0.3));
+    placeCircle(rX, coneStart + dy, rZ, cR, BlockType.SNOW, cR >= 2);
+  }
+
+  // ===== ESCAPE TOWER (spike at top) =====
+  const escStart = coneStart + 10;
+  for (let dy = 0; dy < 6; dy++) {
+    placeBlock(rX, escStart + dy, rZ, BlockType.SNOW);
+  }
+  // Tower fins
+  placeBlock(rX + 1, escStart + 4, rZ, BlockType.SNOW);
+  placeBlock(rX - 1, escStart + 4, rZ, BlockType.SNOW);
+  placeBlock(rX, escStart + 4, rZ + 1, BlockType.SNOW);
+  placeBlock(rX, escStart + 4, rZ - 1, BlockType.SNOW);
+
+  // ===== DOOR INTO ROCKET (on +X side facing scaffolding) =====
+  for (let dy = 0; dy < 3; dy++) {
+    placeBlock(rX + s1R, s1Start + dy, rZ, BlockType.AIR);
+    placeBlock(rX + s1R, s1Start + dy, rZ - 1, BlockType.AIR);
+  }
+
+  // ===== SCAFFOLDING / GANTRY TOWER =====
+  const scX = rX + 10; // Scaffold center X
+  const scZ = rZ;
+  const tw = 3; // Tower half-width
+  const rocketTopY = escStart + 6;
+  const scaffoldH = rocketTopY - padY + 4;
+
+  // Four corner columns
+  for (let dy = 1; dy <= scaffoldH; dy++) {
+    const y = padY + dy;
+    placeBlock(scX - tw, y, scZ - tw, BlockType.RED_WOOL);
+    placeBlock(scX + tw, y, scZ - tw, BlockType.RED_WOOL);
+    placeBlock(scX - tw, y, scZ + tw, BlockType.RED_WOOL);
+    placeBlock(scX + tw, y, scZ + tw, BlockType.RED_WOOL);
+  }
+
+  // Horizontal cross braces every 4 blocks
+  for (let dy = 4; dy <= scaffoldH; dy += 4) {
+    const y = padY + dy;
+    for (let bx = -tw; bx <= tw; bx++) {
+      placeBlock(scX + bx, y, scZ - tw, BlockType.RED_WOOL);
+      placeBlock(scX + bx, y, scZ + tw, BlockType.RED_WOOL);
+    }
+    for (let bz = -tw + 1; bz <= tw - 1; bz++) {
+      placeBlock(scX - tw, y, scZ + bz, BlockType.RED_WOOL);
+      placeBlock(scX + tw, y, scZ + bz, BlockType.RED_WOOL);
+    }
+  }
+
+  // Platforms every 10 blocks + walkways to rocket
+  for (let pdy = 0; pdy <= scaffoldH; pdy += 10) {
+    const platY = padY + pdy;
+    // Platform floor inside tower
+    for (let px = -tw; px <= tw; px++) {
+      for (let pz = -tw; pz <= tw; pz++) {
+        placeBlock(scX + px, platY, scZ + pz, BlockType.DARK_OAK);
+      }
+    }
+    if (pdy === 0) continue; // No walkway at ground level
+
+    // Which rocket radius at this height
+    let curR = s1R;
+    if (platY >= s2Start) curR = s2R;
+    if (platY >= s3Start) curR = s3R;
+    if (platY >= smStart) curR = s3R;
+
+    // Walkway connecting tower to rocket
+    for (let wx = rX + curR; wx <= scX - tw; wx++) {
+      placeBlock(wx, platY, scZ, BlockType.DARK_OAK);
+      placeBlock(wx, platY, scZ - 1, BlockType.DARK_OAK);
+      // Railings
+      placeBlock(wx, platY + 1, scZ + 1, BlockType.RED_WOOL);
+      placeBlock(wx, platY + 1, scZ - 2, BlockType.RED_WOOL);
+    }
+    // Clear doorway into rocket at this level
+    for (let dy = 1; dy <= 2; dy++) {
+      placeBlock(rX + curR, platY + dy, scZ, BlockType.AIR);
+      placeBlock(rX + curR, platY + dy, scZ - 1, BlockType.AIR);
+    }
+  }
+
+  // Spiral stairs inside scaffold tower
+  for (let dy = 1; dy < scaffoldH; dy++) {
+    const y = padY + dy;
+    // Skip platform levels (they already have floors)
+    if (dy % 10 === 0) continue;
+    const phase = dy % 12;
+    if (phase < 3) {
+      // North side: going east
+      const sx = -tw + 1 + phase;
+      placeBlock(scX + sx, y, scZ - tw + 1, BlockType.DARK_OAK);
+      placeBlock(scX + sx + 1, y, scZ - tw + 1, BlockType.DARK_OAK);
+    } else if (phase < 6) {
+      // East side: going south
+      const sz = -tw + 1 + (phase - 3);
+      placeBlock(scX + tw - 1, y, scZ + sz, BlockType.DARK_OAK);
+      placeBlock(scX + tw - 1, y, scZ + sz + 1, BlockType.DARK_OAK);
+    } else if (phase < 9) {
+      // South side: going west
+      const sx = tw - 1 - (phase - 6);
+      placeBlock(scX + sx, y, scZ + tw - 1, BlockType.DARK_OAK);
+      placeBlock(scX + sx - 1, y, scZ + tw - 1, BlockType.DARK_OAK);
+    } else {
+      // West side: going north
+      const sz = tw - 1 - (phase - 9);
+      placeBlock(scX - tw + 1, y, scZ + sz, BlockType.DARK_OAK);
+      placeBlock(scX - tw + 1, y, scZ + sz - 1, BlockType.DARK_OAK);
+    }
+  }
+
+  // Ground-level walkway from pad to scaffold entrance
+  for (let wx = rX + 6; wx <= scX - tw; wx++) {
+    placeBlock(wx, padY, scZ, BlockType.METAL);
+    placeBlock(wx, padY, scZ - 1, BlockType.METAL);
+  }
+}
+
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
   const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
   const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 20;  // Include tank
@@ -1371,6 +1674,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   // Add imported Waterpark
   if (chunkContainsWaterpark(worldX, worldZ)) {
     generateWaterparkInChunk(chunk, worldX, worldZ);
+  }
+
+  // Add Space Rocket
+  if (chunkContainsRocket(worldX, worldZ)) {
+    generateRocketInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;
