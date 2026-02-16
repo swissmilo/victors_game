@@ -1566,6 +1566,410 @@ function generateRocketInChunk(
   }
 }
 
+// ===== FNAF PIZZERIA =====
+const PIZZERIA_ORIGIN = { x: 150, z: 200 };
+const PIZZERIA_WIDTH = 50;
+const PIZZERIA_DEPTH = 40;
+
+function chunkContainsPizzeria(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const margin = CHUNK_SIZE;
+  const minX = PIZZERIA_ORIGIN.x - margin;
+  const maxX = PIZZERIA_ORIGIN.x + PIZZERIA_WIDTH + margin;
+  const minZ = PIZZERIA_ORIGIN.z - margin;
+  const maxZ = PIZZERIA_ORIGIN.z + PIZZERIA_DEPTH + margin;
+
+  const chunkMaxX = chunkWorldX + CHUNK_SIZE;
+  const chunkMaxZ = chunkWorldZ + CHUNK_SIZE;
+
+  return !(chunkMaxX < minX || chunkWorldX > maxX ||
+           chunkMaxZ < minZ || chunkWorldZ > maxZ);
+}
+
+function generatePizzeriaInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  const ox = PIZZERIA_ORIGIN.x;
+  const oz = PIZZERIA_ORIGIN.z;
+  const baseY = getTerrainHeightAt(ox + PIZZERIA_WIDTH / 2, oz + PIZZERIA_DEPTH / 2);
+  const wallHeight = 7;
+  const floorY = baseY + 1;
+
+  const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
+    const localX = wx - chunkWorldX;
+    const localZ = wz - chunkWorldZ;
+    if (localX >= 0 && localX < CHUNK_SIZE &&
+        localZ >= 0 && localZ < CHUNK_SIZE &&
+        wy >= 0 && wy < CHUNK_HEIGHT) {
+      setBlockInChunk(chunk, localX, wy, localZ, block);
+    }
+  };
+
+  // ===== FOUNDATION =====
+  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
+    for (let z = 0; z < PIZZERIA_DEPTH; z++) {
+      placeBlock(ox + x, baseY - 1, oz + z, BlockType.COBBLESTONE);
+      placeBlock(ox + x, baseY, oz + z, BlockType.COBBLESTONE);
+      // Clear air above
+      for (let y = 1; y <= wallHeight + 10; y++) {
+        placeBlock(ox + x, baseY + y, oz + z, BlockType.AIR);
+      }
+    }
+  }
+
+  // ===== EXTERIOR WALLS =====
+  const entranceCX = Math.floor(PIZZERIA_WIDTH / 2); // center X of entrance
+  const entranceMinX = entranceCX - 1;
+  const entranceMaxX = entranceCX + 1;
+
+  // Front wall (z=0) - checkered PLANKS + SAND facade
+  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
+    for (let y = 0; y < wallHeight; y++) {
+      const isEntrance = x >= entranceMinX && x <= entranceMaxX && y < 4;
+      if (!isEntrance) {
+        const block = (x + y) % 2 === 0 ? BlockType.PLANKS : BlockType.SAND;
+        placeBlock(ox + x, floorY + y, oz, block);
+      }
+    }
+  }
+
+  // Stone arch around entrance
+  for (let x = entranceMinX; x <= entranceMaxX; x++) {
+    placeBlock(ox + x, floorY + 4, oz, BlockType.STONE);
+  }
+  for (let y = 0; y < 4; y++) {
+    placeBlock(ox + entranceMinX - 1, floorY + y, oz, BlockType.STONE);
+    placeBlock(ox + entranceMaxX + 1, floorY + y, oz, BlockType.STONE);
+  }
+  // Decorative pillars flanking entrance
+  for (let y = 0; y < wallHeight; y++) {
+    placeBlock(ox + entranceMinX - 2, floorY + y, oz, BlockType.STONE);
+    placeBlock(ox + entranceMinX - 2, floorY + y, oz - 1, BlockType.STONE);
+    placeBlock(ox + entranceMaxX + 2, floorY + y, oz, BlockType.STONE);
+    placeBlock(ox + entranceMaxX + 2, floorY + y, oz - 1, BlockType.STONE);
+  }
+
+  // Side walls (DARK_OAK)
+  for (let z = 1; z < PIZZERIA_DEPTH; z++) {
+    for (let y = 0; y < wallHeight; y++) {
+      placeBlock(ox, floorY + y, oz + z, BlockType.DARK_OAK);
+      placeBlock(ox + PIZZERIA_WIDTH - 1, floorY + y, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // Back wall (DARK_OAK)
+  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
+    for (let y = 0; y < wallHeight; y++) {
+      placeBlock(ox + x, floorY + y, oz + PIZZERIA_DEPTH - 1, BlockType.DARK_OAK);
+    }
+  }
+
+  // ===== ROOF =====
+  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
+    for (let z = 0; z < PIZZERIA_DEPTH; z++) {
+      placeBlock(ox + x, floorY + wallHeight, oz + z, BlockType.COBBLESTONE);
+    }
+  }
+  // Roof border
+  for (let x = -1; x <= PIZZERIA_WIDTH; x++) {
+    placeBlock(ox + x, floorY + wallHeight, oz - 1, BlockType.STONE);
+    placeBlock(ox + x, floorY + wallHeight, oz + PIZZERIA_DEPTH, BlockType.STONE);
+  }
+  for (let z = 0; z < PIZZERIA_DEPTH; z++) {
+    placeBlock(ox - 1, floorY + wallHeight, oz + z, BlockType.STONE);
+    placeBlock(ox + PIZZERIA_WIDTH, floorY + wallHeight, oz + z, BlockType.STONE);
+  }
+
+  // ===== RAISED FRONT FACADE + FREDDY FACE =====
+  const facadeWidth = 25;
+  const facadeExtraH = 14;
+  const facadeStartX = Math.floor(PIZZERIA_WIDTH / 2) - Math.floor(facadeWidth / 2);
+
+  // Build raised facade above front wall
+  for (let x = 0; x < facadeWidth; x++) {
+    for (let y = 0; y < facadeExtraH; y++) {
+      const block = (x + y) % 2 === 0 ? BlockType.PLANKS : BlockType.SAND;
+      placeBlock(ox + facadeStartX + x, floorY + wallHeight + 1 + y, oz, block);
+    }
+  }
+  // Facade border pillars
+  for (let y = 0; y < facadeExtraH; y++) {
+    placeBlock(ox + facadeStartX - 1, floorY + wallHeight + 1 + y, oz, BlockType.STONE);
+    placeBlock(ox + facadeStartX + facadeWidth, floorY + wallHeight + 1 + y, oz, BlockType.STONE);
+  }
+  // Facade top cap
+  for (let x = -1; x <= facadeWidth; x++) {
+    placeBlock(ox + facadeStartX + x, floorY + wallHeight + facadeExtraH + 1, oz, BlockType.STONE);
+  }
+
+  // Freddy Fazbear face - 13 wide x 12 tall pixel art
+  // B=DARK_OAK (brown), S=SAND (muzzle), O=ORANGE_GLASS (eyes)
+  // K=BLACK_GLASS (pupils/nose), R=RED_WOOL (inner ears), H=OBSIDIAN (hat)
+  const face: string[] = [
+    '.HHHHHHHHHHH.', // hat brim
+    '...HHHHHHH...', // hat crown
+    '...HHHHHHH...', // hat crown
+    'RBB.......BBR', // ears
+    'BBBBBBBBBBBBB', // forehead
+    'BBBOKBBBKOBBB', // eyes
+    'BBBBBBBBBBBBB', // cheeks
+    'BBBBBSSSSSBBB', // upper muzzle
+    'BBBBSSKKSSBBB', // nose
+    'BBBBBSSSSSBBB', // lower muzzle
+    'BBBBBKKKBBBBB', // mouth
+    'BBBBBBBBBBBBB', // chin
+  ];
+
+  const faceBlockMap: Record<string, BlockType> = {
+    'B': BlockType.DARK_OAK,
+    'S': BlockType.SAND,
+    'O': BlockType.ORANGE_GLASS,
+    'K': BlockType.BLACK_GLASS,
+    'R': BlockType.RED_WOOL,
+    'H': BlockType.OBSIDIAN,
+  };
+
+  const faceW = 13;
+  const faceH = face.length;
+  const faceOffsetX = facadeStartX + Math.floor((facadeWidth - faceW) / 2);
+  const faceOffsetY = floorY + wallHeight + 1 + Math.floor((facadeExtraH - faceH) / 2);
+
+  for (let row = 0; row < faceH; row++) {
+    for (let col = 0; col < faceW; col++) {
+      const ch = face[faceH - 1 - row][col]; // Bottom-up (row 0 at bottom)
+      if (ch !== '.' && faceBlockMap[ch]) {
+        placeBlock(ox + faceOffsetX + col, faceOffsetY + row, oz, faceBlockMap[ch]);
+      }
+    }
+  }
+
+  // ===== INTERIOR WALLS (DARK_OAK, 5 blocks tall) =====
+  const iWallH = 5;
+
+  // West hall wall (x=7, z=1..19) with door openings at z=2 and z=17
+  for (let z = 1; z < 20; z++) {
+    for (let y = 0; y < iWallH; y++) {
+      const isDoor = (z >= 2 && z <= 3 && y < 3) || (z >= 16 && z <= 17 && y < 3);
+      if (!isDoor) placeBlock(ox + 7, floorY + y, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // East hall wall (x=42, z=1..19) with door openings
+  for (let z = 1; z < 20; z++) {
+    for (let y = 0; y < iWallH; y++) {
+      const isDoor = (z >= 2 && z <= 3 && y < 3) || (z >= 16 && z <= 17 && y < 3);
+      if (!isDoor) placeBlock(ox + 42, floorY + y, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // Dividing wall (z=20, x=1..48) with 3 door openings
+  for (let x = 1; x < PIZZERIA_WIDTH - 1; x++) {
+    for (let y = 0; y < iWallH; y++) {
+      const isDoor = (x >= 6 && x <= 7 && y < 3) ||    // west door
+                     (x >= 24 && x <= 25 && y < 3) ||   // center door
+                     (x >= 42 && x <= 43 && y < 3);     // east door
+      if (!isDoor) placeBlock(ox + x, floorY + y, oz + 20, BlockType.DARK_OAK);
+    }
+  }
+
+  // Parts & Service | Kitchen wall (x=15, z=21..38) with door
+  for (let z = 21; z < PIZZERIA_DEPTH - 1; z++) {
+    for (let y = 0; y < iWallH; y++) {
+      const isDoor = z >= 28 && z <= 29 && y < 3;
+      if (!isDoor) placeBlock(ox + 15, floorY + y, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // Kitchen | Security Office wall (x=35, z=21..38) with door
+  for (let z = 21; z < PIZZERIA_DEPTH - 1; z++) {
+    for (let y = 0; y < iWallH; y++) {
+      const isDoor = z >= 28 && z <= 29 && y < 3;
+      if (!isDoor) placeBlock(ox + 35, floorY + y, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // ===== MAIN DINING HALL (x=8..41, z=1..16) =====
+  // Checkered floor
+  for (let x = 8; x <= 41; x++) {
+    for (let z = 1; z <= 16; z++) {
+      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.ANDESITE_BLOCK;
+      placeBlock(ox + x, baseY, oz + z, block);
+    }
+  }
+
+  // Booths along left wall (x=8..10, spaced every 5 along z)
+  for (let bz = 3; bz <= 13; bz += 5) {
+    // Seat (2 blocks long)
+    for (let dz = 0; dz < 3; dz++) {
+      placeBlock(ox + 8, floorY, oz + bz + dz, BlockType.RED_WOOL);     // seat
+      placeBlock(ox + 8, floorY + 1, oz + bz + dz, BlockType.RED_WOOL); // back
+    }
+  }
+
+  // Booths along right wall (x=41)
+  for (let bz = 3; bz <= 13; bz += 5) {
+    for (let dz = 0; dz < 3; dz++) {
+      placeBlock(ox + 41, floorY, oz + bz + dz, BlockType.RED_WOOL);
+      placeBlock(ox + 41, floorY + 1, oz + bz + dz, BlockType.RED_WOOL);
+    }
+  }
+
+  // Tables in center (2x1 planks tops on wood legs, grid layout)
+  for (let tx = 15; tx <= 35; tx += 5) {
+    for (let tz = 4; tz <= 14; tz += 5) {
+      // Table leg
+      placeBlock(ox + tx, floorY, oz + tz, BlockType.WOOD);
+      // Table top (2x2)
+      placeBlock(ox + tx, floorY + 1, oz + tz, BlockType.PLANKS);
+      placeBlock(ox + tx + 1, floorY + 1, oz + tz, BlockType.PLANKS);
+      placeBlock(ox + tx, floorY + 1, oz + tz + 1, BlockType.PLANKS);
+      placeBlock(ox + tx + 1, floorY + 1, oz + tz + 1, BlockType.PLANKS);
+    }
+  }
+
+  // Ceiling lights in dining hall (MAGMA every 5 blocks)
+  for (let x = 10; x <= 40; x += 5) {
+    for (let z = 3; z <= 15; z += 5) {
+      placeBlock(ox + x, floorY + wallHeight - 1, oz + z, BlockType.MAGMA);
+    }
+  }
+
+  // ===== SHOW STAGE (x=8..41, z=17..19, elevated +1) =====
+  // Stage platform (raised 1 block)
+  for (let x = 8; x <= 41; x++) {
+    for (let z = 17; z <= 19; z++) {
+      placeBlock(ox + x, floorY, oz + z, BlockType.DARK_OAK);
+    }
+  }
+
+  // Stage curtains (RED_WOOL on sides and back)
+  for (let y = 1; y <= 4; y++) {
+    for (let z = 17; z <= 19; z++) {
+      placeBlock(ox + 8, floorY + y, oz + z, BlockType.RED_WOOL);
+      placeBlock(ox + 41, floorY + y, oz + z, BlockType.RED_WOOL);
+    }
+    for (let x = 8; x <= 41; x++) {
+      placeBlock(ox + x, floorY + y, oz + 19, BlockType.RED_WOOL);
+    }
+  }
+
+  // Animatronic: Freddy (center) - DARK_OAK body + OBSIDIAN hat
+  const freddyX = 25;
+  placeBlock(ox + freddyX, floorY + 1, oz + 18, BlockType.DARK_OAK);     // legs
+  placeBlock(ox + freddyX, floorY + 2, oz + 18, BlockType.DARK_OAK);     // body
+  placeBlock(ox + freddyX, floorY + 3, oz + 18, BlockType.DARK_OAK);     // head
+  placeBlock(ox + freddyX - 1, floorY + 2, oz + 18, BlockType.DARK_OAK); // left arm
+  placeBlock(ox + freddyX + 1, floorY + 2, oz + 18, BlockType.DARK_OAK); // right arm
+  placeBlock(ox + freddyX, floorY + 4, oz + 18, BlockType.OBSIDIAN);     // hat
+  placeBlock(ox + freddyX - 1, floorY + 4, oz + 18, BlockType.OBSIDIAN); // hat brim
+  placeBlock(ox + freddyX + 1, floorY + 4, oz + 18, BlockType.OBSIDIAN); // hat brim
+
+  // Animatronic: Bonnie (left) - COBBLESTONE body (blue-ish)
+  const bonnieX = 17;
+  placeBlock(ox + bonnieX, floorY + 1, oz + 18, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX, floorY + 2, oz + 18, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX, floorY + 3, oz + 18, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX - 1, floorY + 2, oz + 18, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX + 1, floorY + 2, oz + 18, BlockType.COBBLESTONE);
+
+  // Animatronic: Chica (right) - SAND body (yellow) + ORANGE_GLASS bib
+  const chicaX = 33;
+  placeBlock(ox + chicaX, floorY + 1, oz + 18, BlockType.SAND);
+  placeBlock(ox + chicaX, floorY + 2, oz + 18, BlockType.ORANGE_GLASS);  // bib
+  placeBlock(ox + chicaX, floorY + 3, oz + 18, BlockType.SAND);
+  placeBlock(ox + chicaX - 1, floorY + 2, oz + 18, BlockType.SAND);
+  placeBlock(ox + chicaX + 1, floorY + 2, oz + 18, BlockType.SAND);
+
+  // ===== HALLWAYS (west x=1..6, east x=43..48, z=1..19) =====
+  // Dark checkered floors
+  for (let z = 1; z < 20; z++) {
+    for (let x = 1; x <= 6; x++) {
+      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
+      placeBlock(ox + x, baseY, oz + z, block);
+    }
+    for (let x = 43; x <= 48; x++) {
+      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
+      placeBlock(ox + x, baseY, oz + z, block);
+    }
+  }
+
+  // Sparse hallway ceiling lights (every 8 blocks)
+  for (let z = 4; z <= 18; z += 8) {
+    placeBlock(ox + 3, floorY + wallHeight - 1, oz + z, BlockType.MAGMA);
+    placeBlock(ox + 46, floorY + wallHeight - 1, oz + z, BlockType.MAGMA);
+  }
+
+  // ===== PARTS & SERVICE (x=1..14, z=21..38) =====
+  // Metal floor
+  for (let x = 1; x <= 14; x++) {
+    for (let z = 21; z <= 38; z++) {
+      placeBlock(ox + x, baseY, oz + z, BlockType.METAL);
+    }
+  }
+  // Scattered metal debris
+  placeBlock(ox + 3, floorY, oz + 25, BlockType.METAL);
+  placeBlock(ox + 5, floorY, oz + 30, BlockType.METAL);
+  placeBlock(ox + 10, floorY, oz + 23, BlockType.METAL);
+  placeBlock(ox + 7, floorY, oz + 35, BlockType.METAL);
+  // Spare animatronic figure (disassembled)
+  placeBlock(ox + 8, floorY, oz + 33, BlockType.COBBLESTONE);   // torso on floor
+  placeBlock(ox + 9, floorY, oz + 33, BlockType.COBBLESTONE);   // head beside
+  placeBlock(ox + 8, floorY, oz + 34, BlockType.COBBLESTONE);   // arm
+  // Single dim light
+  placeBlock(ox + 8, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+
+  // ===== KITCHEN (x=16..34, z=21..38) =====
+  // Stone floor
+  for (let x = 16; x <= 34; x++) {
+    for (let z = 21; z <= 38; z++) {
+      placeBlock(ox + x, baseY, oz + z, BlockType.STONE);
+    }
+  }
+  // Counters along back wall (STONE base + METAL top)
+  for (let x = 17; x <= 33; x++) {
+    placeBlock(ox + x, floorY, oz + 37, BlockType.STONE);
+    placeBlock(ox + x, floorY + 1, oz + 37, BlockType.METAL);
+  }
+  // Side counter
+  for (let z = 30; z <= 37; z++) {
+    placeBlock(ox + 17, floorY, oz + z, BlockType.STONE);
+    placeBlock(ox + 17, floorY + 1, oz + z, BlockType.METAL);
+  }
+  // Oven (COBBLESTONE box with MAGMA inside)
+  placeBlock(ox + 30, floorY, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 31, floorY, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 30, floorY + 1, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 31, floorY + 1, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 30, floorY, oz + 36, BlockType.MAGMA);
+  placeBlock(ox + 31, floorY, oz + 36, BlockType.MAGMA);
+  // Kitchen light
+  placeBlock(ox + 25, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+
+  // ===== SECURITY OFFICE (x=36..48, z=21..38) =====
+  // Checkered floor
+  for (let x = 36; x <= 48; x++) {
+    for (let z = 21; z <= 38; z++) {
+      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.ANDESITE_BLOCK;
+      placeBlock(ox + x, baseY, oz + z, block);
+    }
+  }
+  // Desk (PLANKS)
+  for (let x = 40; x <= 44; x++) {
+    placeBlock(ox + x, floorY, oz + 28, BlockType.WOOD);
+    placeBlock(ox + x, floorY + 1, oz + 28, BlockType.PLANKS);
+  }
+  // Monitors on desk (BLACK_GLASS)
+  placeBlock(ox + 41, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
+  placeBlock(ox + 42, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
+  placeBlock(ox + 43, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
+  // Fan (METAL)
+  placeBlock(ox + 45, floorY + 1, oz + 26, BlockType.METAL);
+  placeBlock(ox + 45, floorY + 2, oz + 26, BlockType.METAL);
+  // Single dim light
+  placeBlock(ox + 42, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+}
+
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
   const mansionMinX = MANSION_ORIGIN.x - 10;  // Include dead trees and graveyard
   const mansionMaxX = MANSION_ORIGIN.x + MANSION_WIDTH + 20;  // Include tank
@@ -1679,6 +2083,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
   // Add Space Rocket
   if (chunkContainsRocket(worldX, worldZ)) {
     generateRocketInChunk(chunk, worldX, worldZ);
+  }
+
+  // Add FNAF Pizzeria
+  if (chunkContainsPizzeria(worldX, worldZ)) {
+    generatePizzeriaInChunk(chunk, worldX, worldZ);
   }
 
   return chunk;
