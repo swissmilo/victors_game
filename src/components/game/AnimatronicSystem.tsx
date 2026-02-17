@@ -50,9 +50,9 @@ const ANIMATRONIC_DEFS: AnimatronicDef[] = [
   { kind: 'chica', color: 0xFFD700, faceTexture: '/textures/chica_face.png', spawnOffset: [8, 0] },
 ];
 
-// Stage center in world coords
+// Stage center in world coords (stage spans z=13..19, center at z=16)
 const STAGE_CENTER_X = PIZZERIA_ORIGIN.x + 25;
-const STAGE_CENTER_Z = PIZZERIA_ORIGIN.z + 18;
+const STAGE_CENTER_Z = PIZZERIA_ORIGIN.z + 16;
 
 function isInsidePizzeria(x: number, z: number): boolean {
   return x >= PIZZERIA_BOUNDS.minX && x <= PIZZERIA_BOUNDS.maxX &&
@@ -231,8 +231,9 @@ export function AnimatronicSystem() {
     }
   }, [animatronics.length, isPlaying, initializeAnimatronics]);
 
-  // Ground level detection
-  const findGroundLevel = (x: number, z: number): number => {
+  // Ground level detection - scans downward from fromY to find interior floor
+  // (scanning from chunk top would find the roof instead of the floor)
+  const findGroundLevel = (x: number, z: number, fromY: number): number => {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkZ = Math.floor(z / CHUNK_SIZE);
     const key = chunkPositionToKey({ x: chunkX, z: chunkZ });
@@ -242,7 +243,8 @@ export function AnimatronicSystem() {
     const localX = ((Math.floor(x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const localZ = ((Math.floor(z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 
-    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+    const startY = Math.min(Math.floor(fromY), CHUNK_HEIGHT - 1);
+    for (let y = startY; y >= 0; y--) {
       const block = getBlockFromChunk(chunk.data, localX, y, localZ);
       if (block !== BlockType.AIR) {
         return y + 1;
@@ -329,9 +331,9 @@ export function AnimatronicSystem() {
         wanderTimer = WANDER_INTERVAL;
       }
 
-      // Ground + collision
+      // Ground + collision (scan from current Y to find interior floor, not roof)
       const feetOffset = BODY_HEIGHT / 2 + LEG_HEIGHT;
-      const groundY = findGroundLevel(newX, newZ);
+      const groundY = findGroundLevel(newX, newZ, Math.floor(anim.position[1]));
       const newY = groundY + feetOffset;
 
       const radius = BODY_WIDTH / 2;

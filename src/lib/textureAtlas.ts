@@ -6,10 +6,10 @@ import * as THREE from 'three';
 
 // Texture size (Minecraft textures are 16x16)
 const TEXTURE_SIZE = 16;
-const ATLAS_COLS = 5;  // 5 columns
-const ATLAS_ROWS = 5;  // 5x5 = 25 slots
-const ATLAS_WIDTH = TEXTURE_SIZE * ATLAS_COLS;   // 64
-const ATLAS_HEIGHT = TEXTURE_SIZE * ATLAS_ROWS;  // 80
+const ATLAS_COLS = 6;  // 6 columns
+const ATLAS_ROWS = 6;  // 6x6 = 36 slots
+const ATLAS_WIDTH = TEXTURE_SIZE * ATLAS_COLS;   // 96
+const ATLAS_HEIGHT = TEXTURE_SIZE * ATLAS_ROWS;  // 96
 
 // Texture paths and their indices in the atlas
 // Index = col + row * ATLAS_COLS
@@ -39,6 +39,13 @@ export const TEXTURE_INDICES = {
   BLACK_GLASS: 22,
   MAGMA: 23,
   ANDESITE: 24,
+  BRICK: 25,
+  HARDENED_CLAY_BLACK: 26,
+  HARDENED_CLAY_CYAN: 27,
+  HARDENED_CLAY_MAGENTA: 28,
+  HARDENED_CLAY_ORANGE: 29,
+  PAINTING_1: 30,
+  PAINTING_2: 31,
 } as const;
 
 const TEXTURE_PATHS: Record<number, string> = {
@@ -67,6 +74,11 @@ const TEXTURE_PATHS: Record<number, string> = {
   [TEXTURE_INDICES.BLACK_GLASS]: '/textures/black_stained_glass.png',
   [TEXTURE_INDICES.MAGMA]: '/textures/magma.png',
   [TEXTURE_INDICES.ANDESITE]: '/textures/andesite.png',
+  [TEXTURE_INDICES.BRICK]: '/textures/bricks.png',
+  [TEXTURE_INDICES.HARDENED_CLAY_BLACK]: '/textures/black_terracotta.png',
+  [TEXTURE_INDICES.HARDENED_CLAY_CYAN]: '/textures/cyan_terracotta.png',
+  [TEXTURE_INDICES.HARDENED_CLAY_MAGENTA]: '/textures/magenta_terracotta.png',
+  [TEXTURE_INDICES.HARDENED_CLAY_ORANGE]: '/textures/orange_terracotta.png',
 };
 
 /**
@@ -206,7 +218,9 @@ async function createTextureAtlasAsync(): Promise<HTMLCanvasElement> {
   drawMetalTexture(ctx, TEXTURE_INDICES.METAL);
   drawObsidianTexture(ctx, TEXTURE_INDICES.OBSIDIAN);
   drawPortalTexture(ctx, TEXTURE_INDICES.PORTAL);
-  
+  drawPaintingTexture(ctx, TEXTURE_INDICES.PAINTING_1, 1);
+  drawPaintingTexture(ctx, TEXTURE_INDICES.PAINTING_2, 2);
+
   return canvas;
 }
 
@@ -308,6 +322,52 @@ function drawPortalTexture(ctx: CanvasRenderingContext2D, textureIndex: number):
 }
 
 /**
+ * Draw a procedural painting texture (Minecraft-style pixel art in a frame)
+ */
+function drawPaintingTexture(ctx: CanvasRenderingContext2D, textureIndex: number, variant: number): void {
+  const col = textureIndex % ATLAS_COLS;
+  const row = Math.floor(textureIndex / ATLAS_COLS);
+  const x = col * TEXTURE_SIZE;
+  const y = row * TEXTURE_SIZE;
+
+  // Dark wood frame border
+  ctx.fillStyle = '#4a3520';
+  ctx.fillRect(x, y, TEXTURE_SIZE, TEXTURE_SIZE);
+
+  // Inner frame (lighter wood)
+  ctx.fillStyle = '#6b4c2a';
+  ctx.fillRect(x + 1, y + 1, TEXTURE_SIZE - 2, TEXTURE_SIZE - 2);
+
+  // Canvas background
+  ctx.fillStyle = variant === 1 ? '#c8a86e' : '#7a9a5a';
+  ctx.fillRect(x + 2, y + 2, TEXTURE_SIZE - 4, TEXTURE_SIZE - 4);
+
+  if (variant === 1) {
+    // Painting 1: Sunset landscape
+    ctx.fillStyle = '#d4944a';
+    ctx.fillRect(x + 2, y + 2, 12, 5);     // Sky
+    ctx.fillStyle = '#e8b84a';
+    ctx.fillRect(x + 5, y + 3, 4, 3);       // Sun
+    ctx.fillStyle = '#5a7a3a';
+    ctx.fillRect(x + 2, y + 7, 12, 3);      // Hills
+    ctx.fillStyle = '#4a6a2a';
+    ctx.fillRect(x + 3, y + 8, 4, 2);       // Dark hill
+    ctx.fillStyle = '#3a5a1a';
+    ctx.fillRect(x + 2, y + 10, 12, 3);     // Ground
+  } else {
+    // Painting 2: Abstract/skull (FNAF-esque)
+    ctx.fillStyle = '#2a2a3a';
+    ctx.fillRect(x + 2, y + 2, 12, 12);     // Dark background
+    ctx.fillStyle = '#c8c8c8';
+    ctx.fillRect(x + 5, y + 4, 6, 5);       // Face shape
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x + 6, y + 5, 2, 2);       // Left eye
+    ctx.fillRect(x + 9, y + 5, 2, 2);       // Right eye
+    ctx.fillRect(x + 7, y + 8, 2, 1);       // Mouth
+  }
+}
+
+/**
  * Create a fallback atlas with solid colors (used before images load)
  */
 function createFallbackAtlas(): HTMLCanvasElement {
@@ -345,6 +405,13 @@ function createFallbackAtlas(): HTMLCanvasElement {
     [TEXTURE_INDICES.BLACK_GLASS]: '#111111',  // Near black
     [TEXTURE_INDICES.MAGMA]: '#c04010',        // Orange-red glow
     [TEXTURE_INDICES.ANDESITE]: '#8a8a8a',     // Light gray
+    [TEXTURE_INDICES.BRICK]: '#8b4513',        // Brick red-brown
+    [TEXTURE_INDICES.HARDENED_CLAY_BLACK]: '#2a2a2a',  // Dark gray clay
+    [TEXTURE_INDICES.HARDENED_CLAY_CYAN]: '#4a8a8a',   // Cyan clay
+    [TEXTURE_INDICES.HARDENED_CLAY_MAGENTA]: '#9a3a6a', // Magenta clay
+    [TEXTURE_INDICES.HARDENED_CLAY_ORANGE]: '#c06020',  // Orange clay
+    [TEXTURE_INDICES.PAINTING_1]: '#8b6914',   // Painting frame brown
+    [TEXTURE_INDICES.PAINTING_2]: '#6b4423',   // Painting frame brown
   };
   
   // Fill with magenta for empty slots

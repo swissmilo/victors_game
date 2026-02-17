@@ -374,7 +374,7 @@ export function MeteorShowerSystem() {
       const groundY = findGroundLevel(meteor.position.x, meteor.position.z);
       if (meteor.position.y <= groundY + 1) {
         meteor.active = false;
-        createCrater(meteor.position.x, groundY, meteor.position.z);
+        // Temporarily disabled: createCrater(meteor.position.x, groundY, meteor.position.z);
         spawnExplosion(meteor.position.x, groundY + 1, meteor.position.z);
       }
 

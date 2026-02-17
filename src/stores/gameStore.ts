@@ -374,7 +374,7 @@ const GODZILLA_HEIGHT = 84;  // Twice the mansion height (42 blocks)
 const LAKE_CENTER_X = -50;
 const LAKE_CENTER_Z = -50;
 const LAKE_RADIUS = 840;
-const LAKE_WATER_LEVEL = 28;
+const LAKE_WATER_LEVEL = 23;
 
 const INITIAL_EARTHQUAKE: EarthquakeState = {
   phase: 'countdown',

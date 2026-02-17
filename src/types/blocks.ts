@@ -25,6 +25,13 @@ export enum BlockType {
   BLACK_GLASS = 21,
   MAGMA = 22,
   ANDESITE_BLOCK = 23,
+  BRICK = 24,
+  HARDENED_CLAY_BLACK = 25,
+  HARDENED_CLAY_CYAN = 26,
+  HARDENED_CLAY_MAGENTA = 27,
+  HARDENED_CLAY_ORANGE = 28,
+  PAINTING_1 = 29,
+  PAINTING_2 = 30,
 }
 
 export interface BlockDefinition {
@@ -205,5 +212,54 @@ export const BLOCK_DEFINITIONS: Record<BlockType, BlockDefinition> = {
     solid: true,
     transparent: false,
     textureIndex: 24,
+  },
+  [BlockType.BRICK]: {
+    id: BlockType.BRICK,
+    name: 'Brick',
+    solid: true,
+    transparent: false,
+    textureIndex: 25,
+  },
+  [BlockType.HARDENED_CLAY_BLACK]: {
+    id: BlockType.HARDENED_CLAY_BLACK,
+    name: 'Black Clay',
+    solid: true,
+    transparent: false,
+    textureIndex: 26,
+  },
+  [BlockType.HARDENED_CLAY_CYAN]: {
+    id: BlockType.HARDENED_CLAY_CYAN,
+    name: 'Cyan Clay',
+    solid: true,
+    transparent: false,
+    textureIndex: 27,
+  },
+  [BlockType.HARDENED_CLAY_MAGENTA]: {
+    id: BlockType.HARDENED_CLAY_MAGENTA,
+    name: 'Magenta Clay',
+    solid: true,
+    transparent: false,
+    textureIndex: 28,
+  },
+  [BlockType.HARDENED_CLAY_ORANGE]: {
+    id: BlockType.HARDENED_CLAY_ORANGE,
+    name: 'Orange Clay',
+    solid: true,
+    transparent: false,
+    textureIndex: 29,
+  },
+  [BlockType.PAINTING_1]: {
+    id: BlockType.PAINTING_1,
+    name: 'Painting 1',
+    solid: true,
+    transparent: false,
+    textureIndex: 30,
+  },
+  [BlockType.PAINTING_2]: {
+    id: BlockType.PAINTING_2,
+    name: 'Painting 2',
+    solid: true,
+    transparent: false,
+    textureIndex: 31,
   },
 };

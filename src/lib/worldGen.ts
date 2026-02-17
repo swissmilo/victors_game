@@ -26,8 +26,8 @@ const CAVE_ENTRANCE_SCALE = 0.03;
 // Lake for pirate ship (large ocean)
 const LAKE_CENTER = { x: -50, z: -50 };
 const LAKE_RADIUS = 60;
-const LAKE_WATER_LEVEL = 28;
-const LAKE_FLOOR_LEVEL = 20;
+const LAKE_WATER_LEVEL = 23;
+const LAKE_FLOOR_LEVEL = 15;
 
 // Gothic Mansion location (near spawn)
 const MANSION_ORIGIN = { x: 25, z: 20 };
@@ -1926,14 +1926,17 @@ function generatePizzeriaInChunk(
     placeBlock(ox + stepsStartX + x, baseY, oz - 1, BlockType.COBBLESTONE);
   }
 
-  // ===== INTERIOR WALLS (DARK_OAK, 5 blocks tall) =====
+  // ===== INTERIOR WALLS (BRICK with orange accent stripes) =====
   const iWallH = 5;
+  // Helper: brick wall with orange accent stripes at y=2 and y=4
+  const interiorWallBlock = (y: number): BlockType =>
+    (y === 2 || y === 4) ? BlockType.HARDENED_CLAY_ORANGE : BlockType.BRICK;
 
   // West hall wall (x=7, z=1..19) with door openings at z=2 and z=17
   for (let z = 1; z < 20; z++) {
     for (let y = 0; y < iWallH; y++) {
       const isDoor = (z >= 2 && z <= 3 && y < 3) || (z >= 16 && z <= 17 && y < 3);
-      if (!isDoor) placeBlock(ox + 7, floorY + y, oz + z, BlockType.DARK_OAK);
+      if (!isDoor) placeBlock(ox + 7, floorY + y, oz + z, interiorWallBlock(y));
     }
   }
 
@@ -1941,7 +1944,7 @@ function generatePizzeriaInChunk(
   for (let z = 1; z < 20; z++) {
     for (let y = 0; y < iWallH; y++) {
       const isDoor = (z >= 2 && z <= 3 && y < 3) || (z >= 16 && z <= 17 && y < 3);
-      if (!isDoor) placeBlock(ox + 42, floorY + y, oz + z, BlockType.DARK_OAK);
+      if (!isDoor) placeBlock(ox + 42, floorY + y, oz + z, interiorWallBlock(y));
     }
   }
 
@@ -1951,7 +1954,7 @@ function generatePizzeriaInChunk(
       const isDoor = (x >= 6 && x <= 7 && y < 3) ||    // west door
                      (x >= 24 && x <= 25 && y < 3) ||   // center door
                      (x >= 42 && x <= 43 && y < 3);     // east door
-      if (!isDoor) placeBlock(ox + x, floorY + y, oz + 20, BlockType.DARK_OAK);
+      if (!isDoor) placeBlock(ox + x, floorY + y, oz + 20, interiorWallBlock(y));
     }
   }
 
@@ -1959,7 +1962,7 @@ function generatePizzeriaInChunk(
   for (let z = 21; z < PIZZERIA_DEPTH - 1; z++) {
     for (let y = 0; y < iWallH; y++) {
       const isDoor = z >= 28 && z <= 29 && y < 3;
-      if (!isDoor) placeBlock(ox + 15, floorY + y, oz + z, BlockType.DARK_OAK);
+      if (!isDoor) placeBlock(ox + 15, floorY + y, oz + z, interiorWallBlock(y));
     }
   }
 
@@ -1967,15 +1970,16 @@ function generatePizzeriaInChunk(
   for (let z = 21; z < PIZZERIA_DEPTH - 1; z++) {
     for (let y = 0; y < iWallH; y++) {
       const isDoor = z >= 28 && z <= 29 && y < 3;
-      if (!isDoor) placeBlock(ox + 35, floorY + y, oz + z, BlockType.DARK_OAK);
+      if (!isDoor) placeBlock(ox + 35, floorY + y, oz + z, interiorWallBlock(y));
     }
   }
 
   // ===== MAIN DINING HALL (x=8..41, z=1..16) =====
-  // Checkered floor
+  // Colorful confetti clay floor tiles
+  const confettiClays = [BlockType.HARDENED_CLAY_BLACK, BlockType.HARDENED_CLAY_CYAN, BlockType.HARDENED_CLAY_MAGENTA, BlockType.HARDENED_CLAY_ORANGE];
   for (let x = 8; x <= 41; x++) {
     for (let z = 1; z <= 16; z++) {
-      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.ANDESITE_BLOCK;
+      const block = confettiClays[((x * 7 + z * 13) & 0x7FFFFFFF) % 4];
       placeBlock(ox + x, baseY, oz + z, block);
     }
   }
@@ -1999,7 +2003,7 @@ function generatePizzeriaInChunk(
 
   // Tables in center (2x1 planks tops on wood legs, grid layout)
   for (let tx = 15; tx <= 35; tx += 5) {
-    for (let tz = 4; tz <= 14; tz += 5) {
+    for (let tz = 4; tz <= 9; tz += 5) {
       // Table leg
       placeBlock(ox + tx, floorY, oz + tz, BlockType.WOOD);
       // Table top (2x2)
@@ -2017,17 +2021,28 @@ function generatePizzeriaInChunk(
     }
   }
 
-  // ===== SHOW STAGE (x=8..41, z=17..19, elevated +1) =====
-  // Stage platform (raised 1 block)
+  // Paintings on dining hall walls (eye level = floorY + 2)
+  // West wall paintings (on x=7, facing east)
+  placeBlock(ox + 8, floorY + 2, oz + 5, BlockType.PAINTING_1);
+  placeBlock(ox + 8, floorY + 2, oz + 10, BlockType.PAINTING_2);
+  // East wall paintings (on x=42, facing west)
+  placeBlock(ox + 41, floorY + 2, oz + 5, BlockType.PAINTING_2);
+  placeBlock(ox + 41, floorY + 2, oz + 10, BlockType.PAINTING_1);
+  // Back dividing wall paintings (on z=20, facing south)
+  placeBlock(ox + 15, floorY + 2, oz + 19, BlockType.PAINTING_1);
+  placeBlock(ox + 35, floorY + 2, oz + 19, BlockType.PAINTING_2);
+
+  // ===== SHOW STAGE (x=8..41, z=13..19, elevated +1) =====
+  // Stage platform (raised 1 block) - large stage area
   for (let x = 8; x <= 41; x++) {
-    for (let z = 17; z <= 19; z++) {
+    for (let z = 13; z <= 19; z++) {
       placeBlock(ox + x, floorY, oz + z, BlockType.DARK_OAK);
     }
   }
 
   // Stage curtains (RED_WOOL on sides and back)
   for (let y = 1; y <= 4; y++) {
-    for (let z = 17; z <= 19; z++) {
+    for (let z = 13; z <= 19; z++) {
       placeBlock(ox + 8, floorY + y, oz + z, BlockType.RED_WOOL);
       placeBlock(ox + 41, floorY + y, oz + z, BlockType.RED_WOOL);
     }
@@ -2038,40 +2053,42 @@ function generatePizzeriaInChunk(
 
   // Animatronic: Freddy (center) - DARK_OAK body + OBSIDIAN hat
   const freddyX = 25;
-  placeBlock(ox + freddyX, floorY + 1, oz + 18, BlockType.DARK_OAK);     // legs
-  placeBlock(ox + freddyX, floorY + 2, oz + 18, BlockType.DARK_OAK);     // body
-  placeBlock(ox + freddyX, floorY + 3, oz + 18, BlockType.DARK_OAK);     // head
-  placeBlock(ox + freddyX - 1, floorY + 2, oz + 18, BlockType.DARK_OAK); // left arm
-  placeBlock(ox + freddyX + 1, floorY + 2, oz + 18, BlockType.DARK_OAK); // right arm
-  placeBlock(ox + freddyX, floorY + 4, oz + 18, BlockType.OBSIDIAN);     // hat
-  placeBlock(ox + freddyX - 1, floorY + 4, oz + 18, BlockType.OBSIDIAN); // hat brim
-  placeBlock(ox + freddyX + 1, floorY + 4, oz + 18, BlockType.OBSIDIAN); // hat brim
+  placeBlock(ox + freddyX, floorY + 1, oz + 16, BlockType.DARK_OAK);     // legs
+  placeBlock(ox + freddyX, floorY + 2, oz + 16, BlockType.DARK_OAK);     // body
+  placeBlock(ox + freddyX, floorY + 3, oz + 16, BlockType.DARK_OAK);     // head
+  placeBlock(ox + freddyX - 1, floorY + 2, oz + 16, BlockType.DARK_OAK); // left arm
+  placeBlock(ox + freddyX + 1, floorY + 2, oz + 16, BlockType.DARK_OAK); // right arm
+  placeBlock(ox + freddyX, floorY + 4, oz + 16, BlockType.OBSIDIAN);     // hat
+  placeBlock(ox + freddyX - 1, floorY + 4, oz + 16, BlockType.OBSIDIAN); // hat brim
+  placeBlock(ox + freddyX + 1, floorY + 4, oz + 16, BlockType.OBSIDIAN); // hat brim
 
   // Animatronic: Bonnie (left) - COBBLESTONE body (blue-ish)
   const bonnieX = 17;
-  placeBlock(ox + bonnieX, floorY + 1, oz + 18, BlockType.COBBLESTONE);
-  placeBlock(ox + bonnieX, floorY + 2, oz + 18, BlockType.COBBLESTONE);
-  placeBlock(ox + bonnieX, floorY + 3, oz + 18, BlockType.COBBLESTONE);
-  placeBlock(ox + bonnieX - 1, floorY + 2, oz + 18, BlockType.COBBLESTONE);
-  placeBlock(ox + bonnieX + 1, floorY + 2, oz + 18, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX, floorY + 1, oz + 16, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX, floorY + 2, oz + 16, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX, floorY + 3, oz + 16, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX - 1, floorY + 2, oz + 16, BlockType.COBBLESTONE);
+  placeBlock(ox + bonnieX + 1, floorY + 2, oz + 16, BlockType.COBBLESTONE);
 
   // Animatronic: Chica (right) - SAND body (yellow) + ORANGE_GLASS bib
   const chicaX = 33;
-  placeBlock(ox + chicaX, floorY + 1, oz + 18, BlockType.SAND);
-  placeBlock(ox + chicaX, floorY + 2, oz + 18, BlockType.ORANGE_GLASS);  // bib
-  placeBlock(ox + chicaX, floorY + 3, oz + 18, BlockType.SAND);
-  placeBlock(ox + chicaX - 1, floorY + 2, oz + 18, BlockType.SAND);
-  placeBlock(ox + chicaX + 1, floorY + 2, oz + 18, BlockType.SAND);
+  placeBlock(ox + chicaX, floorY + 1, oz + 16, BlockType.SAND);
+  placeBlock(ox + chicaX, floorY + 2, oz + 16, BlockType.ORANGE_GLASS);  // bib
+  placeBlock(ox + chicaX, floorY + 3, oz + 16, BlockType.SAND);
+  placeBlock(ox + chicaX - 1, floorY + 2, oz + 16, BlockType.SAND);
+  placeBlock(ox + chicaX + 1, floorY + 2, oz + 16, BlockType.SAND);
 
   // ===== HALLWAYS (west x=1..6, east x=43..48, z=1..19) =====
-  // Dark checkered floors
+  // Dark checkered floors with occasional black clay variety
   for (let z = 1; z < 20; z++) {
     for (let x = 1; x <= 6; x++) {
-      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
+      const block = (x * 3 + z * 5) % 7 === 0 ? BlockType.HARDENED_CLAY_BLACK
+        : (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
       placeBlock(ox + x, baseY, oz + z, block);
     }
     for (let x = 43; x <= 48; x++) {
-      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
+      const block = (x * 3 + z * 5) % 7 === 0 ? BlockType.HARDENED_CLAY_BLACK
+        : (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.OBSIDIAN;
       placeBlock(ox + x, baseY, oz + z, block);
     }
   }
@@ -2129,10 +2146,11 @@ function generatePizzeriaInChunk(
   placeBlock(ox + 25, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
 
   // ===== SECURITY OFFICE (x=36..48, z=21..38) =====
-  // Checkered floor
+  // Dark checkered floor with black clay variety
   for (let x = 36; x <= 48; x++) {
     for (let z = 21; z <= 38; z++) {
-      const block = (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.ANDESITE_BLOCK;
+      const block = (x * 3 + z * 5) % 7 === 0 ? BlockType.HARDENED_CLAY_BLACK
+        : (x + z) % 2 === 0 ? BlockType.DEEPSLATE : BlockType.ANDESITE_BLOCK;
       placeBlock(ox + x, baseY, oz + z, block);
     }
   }

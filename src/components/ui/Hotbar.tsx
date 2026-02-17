@@ -29,6 +29,13 @@ const BLOCK_COLORS: Record<BlockType, string> = {
   [BlockType.BLACK_GLASS]: '#111111',
   [BlockType.MAGMA]: '#c04010',
   [BlockType.ANDESITE_BLOCK]: '#8a8a8a',
+  [BlockType.BRICK]: '#8b4513',
+  [BlockType.HARDENED_CLAY_BLACK]: '#2a2a2a',
+  [BlockType.HARDENED_CLAY_CYAN]: '#4a8a8a',
+  [BlockType.HARDENED_CLAY_MAGENTA]: '#9a3a6a',
+  [BlockType.HARDENED_CLAY_ORANGE]: '#c06020',
+  [BlockType.PAINTING_1]: '#8b6914',
+  [BlockType.PAINTING_2]: '#6b4423',
 };
 
 // Viewport width below this = phone (single block + tap to cycle); >= = tablet (full hotbar)
