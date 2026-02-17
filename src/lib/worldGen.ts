@@ -1571,8 +1571,10 @@ const PIZZERIA_ORIGIN = { x: 150, z: 200 };
 const PIZZERIA_WIDTH = 50;
 const PIZZERIA_DEPTH = 40;
 
+const PIZZERIA_LOT_PAD = 12; // Parking lot extends this far beyond building
+
 function chunkContainsPizzeria(chunkWorldX: number, chunkWorldZ: number): boolean {
-  const margin = CHUNK_SIZE;
+  const margin = CHUNK_SIZE + PIZZERIA_LOT_PAD;
   const minX = PIZZERIA_ORIGIN.x - margin;
   const maxX = PIZZERIA_ORIGIN.x + PIZZERIA_WIDTH + margin;
   const minZ = PIZZERIA_ORIGIN.z - margin;
@@ -1592,9 +1594,11 @@ function generatePizzeriaInChunk(
 ): void {
   const ox = PIZZERIA_ORIGIN.x;
   const oz = PIZZERIA_ORIGIN.z;
-  const baseY = getTerrainHeightAt(ox + PIZZERIA_WIDTH / 2, oz + PIZZERIA_DEPTH / 2);
+  const terrainY = getTerrainHeightAt(ox + PIZZERIA_WIDTH / 2, oz + PIZZERIA_DEPTH / 2);
+  const baseY = terrainY + 10; // Elevated 10 blocks above terrain
   const wallHeight = 7;
   const floorY = baseY + 1;
+  const pad = PIZZERIA_LOT_PAD;
 
   const placeBlock: PlaceBlockFn = (wx, wy, wz, block) => {
     const localX = wx - chunkWorldX;
@@ -1606,30 +1610,57 @@ function generatePizzeriaInChunk(
     }
   };
 
-  // ===== FOUNDATION =====
+  // ===== PARKING LOT (flat stone area around building) =====
+  for (let x = -pad; x < PIZZERIA_WIDTH + pad; x++) {
+    for (let z = -pad; z < PIZZERIA_DEPTH + pad; z++) {
+      const th = getTerrainHeightAt(ox + x, oz + z);
+      // Flatten terrain to parking level and clear above
+      for (let y = th; y <= baseY + wallHeight + 16; y++) {
+        placeBlock(ox + x, y, oz + z, BlockType.AIR);
+      }
+      // Parking surface at baseY - 1
+      placeBlock(ox + x, baseY - 1, oz + z, BlockType.STONE);
+      // Fill gap from terrain to parking surface
+      for (let y = th; y < baseY - 1; y++) {
+        placeBlock(ox + x, y, oz + z, BlockType.COBBLESTONE);
+      }
+    }
+  }
+  // Parking lot stripe markings (ANDESITE lines in the front lot)
+  for (let x = -pad + 2; x < PIZZERIA_WIDTH + pad - 2; x += 4) {
+    for (let z = -pad; z < -2; z++) {
+      placeBlock(ox + x, baseY - 1, oz + z, BlockType.ANDESITE_BLOCK);
+    }
+  }
+
+  // ===== BUILDING FOUNDATION =====
   for (let x = 0; x < PIZZERIA_WIDTH; x++) {
     for (let z = 0; z < PIZZERIA_DEPTH; z++) {
-      placeBlock(ox + x, baseY - 1, oz + z, BlockType.COBBLESTONE);
       placeBlock(ox + x, baseY, oz + z, BlockType.COBBLESTONE);
-      // Clear air above
-      for (let y = 1; y <= wallHeight + 10; y++) {
-        placeBlock(ox + x, baseY + y, oz + z, BlockType.AIR);
-      }
     }
   }
 
   // ===== EXTERIOR WALLS =====
-  const entranceCX = Math.floor(PIZZERIA_WIDTH / 2); // center X of entrance
-  const entranceMinX = entranceCX - 1;
-  const entranceMaxX = entranceCX + 1;
+  const entranceCX = Math.floor(PIZZERIA_WIDTH / 2);
+  const entranceMinX = entranceCX - 2;
+  const entranceMaxX = entranceCX + 2;
 
-  // Front wall (z=0) - checkered PLANKS + SAND facade
+  // Front wall (z=0) - sandy/tan with dark upper band
   for (let x = 0; x < PIZZERIA_WIDTH; x++) {
     for (let y = 0; y < wallHeight; y++) {
       const isEntrance = x >= entranceMinX && x <= entranceMaxX && y < 4;
       if (!isEntrance) {
-        const block = (x + y) % 2 === 0 ? BlockType.PLANKS : BlockType.SAND;
-        placeBlock(ox + x, floorY + y, oz, block);
+        // Bottom row: yellow/black checkered stripe
+        if (y === 0) {
+          const block = x % 2 === 0 ? BlockType.SAND : BlockType.OBSIDIAN;
+          placeBlock(ox + x, floorY + y, oz, block);
+        } else if (y >= wallHeight - 2) {
+          // Top 2 rows: dark band
+          placeBlock(ox + x, floorY + y, oz, BlockType.OBSIDIAN);
+        } else {
+          // Middle: sandy tan wall
+          placeBlock(ox + x, floorY + y, oz, BlockType.SAND);
+        }
       }
     }
   }
@@ -1638,47 +1669,98 @@ function generatePizzeriaInChunk(
   for (let x = entranceMinX; x <= entranceMaxX; x++) {
     placeBlock(ox + x, floorY + 4, oz, BlockType.STONE);
   }
-  for (let y = 0; y < 4; y++) {
-    placeBlock(ox + entranceMinX - 1, floorY + y, oz, BlockType.STONE);
-    placeBlock(ox + entranceMaxX + 1, floorY + y, oz, BlockType.STONE);
+  for (let y = 0; y <= 4; y++) {
+    placeBlock(ox + entranceMinX - 1, floorY + y, oz, BlockType.DARK_OAK);
+    placeBlock(ox + entranceMaxX + 1, floorY + y, oz, BlockType.DARK_OAK);
   }
-  // Decorative pillars flanking entrance
+  // Decorative DARK_OAK pillars flanking entrance
   for (let y = 0; y < wallHeight; y++) {
-    placeBlock(ox + entranceMinX - 2, floorY + y, oz, BlockType.STONE);
-    placeBlock(ox + entranceMinX - 2, floorY + y, oz - 1, BlockType.STONE);
-    placeBlock(ox + entranceMaxX + 2, floorY + y, oz, BlockType.STONE);
-    placeBlock(ox + entranceMaxX + 2, floorY + y, oz - 1, BlockType.STONE);
+    placeBlock(ox + entranceMinX - 2, floorY + y, oz, BlockType.DARK_OAK);
+    placeBlock(ox + entranceMinX - 2, floorY + y, oz - 1, BlockType.DARK_OAK);
+    placeBlock(ox + entranceMaxX + 2, floorY + y, oz, BlockType.DARK_OAK);
+    placeBlock(ox + entranceMaxX + 2, floorY + y, oz - 1, BlockType.DARK_OAK);
   }
 
-  // Side walls (DARK_OAK)
+  // Side walls - sandy with checkered base stripe and dark upper
   for (let z = 1; z < PIZZERIA_DEPTH; z++) {
     for (let y = 0; y < wallHeight; y++) {
-      placeBlock(ox, floorY + y, oz + z, BlockType.DARK_OAK);
-      placeBlock(ox + PIZZERIA_WIDTH - 1, floorY + y, oz + z, BlockType.DARK_OAK);
+      let block: BlockType;
+      if (y === 0) {
+        block = z % 2 === 0 ? BlockType.SAND : BlockType.OBSIDIAN;
+      } else if (y >= wallHeight - 2) {
+        block = BlockType.OBSIDIAN;
+      } else {
+        block = BlockType.SAND;
+      }
+      placeBlock(ox, floorY + y, oz + z, block);
+      placeBlock(ox + PIZZERIA_WIDTH - 1, floorY + y, oz + z, block);
     }
   }
 
-  // Back wall (DARK_OAK)
+  // Back wall
   for (let x = 0; x < PIZZERIA_WIDTH; x++) {
     for (let y = 0; y < wallHeight; y++) {
-      placeBlock(ox + x, floorY + y, oz + PIZZERIA_DEPTH - 1, BlockType.DARK_OAK);
+      let block: BlockType;
+      if (y === 0) {
+        block = x % 2 === 0 ? BlockType.SAND : BlockType.OBSIDIAN;
+      } else if (y >= wallHeight - 2) {
+        block = BlockType.OBSIDIAN;
+      } else {
+        block = BlockType.SAND;
+      }
+      placeBlock(ox + x, floorY + y, oz + PIZZERIA_DEPTH - 1, block);
     }
   }
 
-  // ===== ROOF =====
-  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
-    for (let z = 0; z < PIZZERIA_DEPTH; z++) {
-      placeBlock(ox + x, floorY + wallHeight, oz + z, BlockType.COBBLESTONE);
+  // DARK_OAK vertical pillars spaced along facade (like the reference wooden poles)
+  for (let px = 0; px < PIZZERIA_WIDTH; px += 8) {
+    for (let y = 0; y < wallHeight; y++) {
+      placeBlock(ox + px, floorY + y, oz, BlockType.DARK_OAK);
     }
   }
-  // Roof border
-  for (let x = -1; x <= PIZZERIA_WIDTH; x++) {
-    placeBlock(ox + x, floorY + wallHeight, oz - 1, BlockType.STONE);
-    placeBlock(ox + x, floorY + wallHeight, oz + PIZZERIA_DEPTH, BlockType.STONE);
+
+  // Tall wooden utility poles at front corners + sides (like in reference)
+  const polePositions = [
+    [-3, -2], [PIZZERIA_WIDTH + 2, -2],
+    [-3, PIZZERIA_DEPTH / 2], [PIZZERIA_WIDTH + 2, PIZZERIA_DEPTH / 2],
+  ];
+  for (const [px, pz] of polePositions) {
+    for (let y = 0; y <= wallHeight + 8; y++) {
+      placeBlock(ox + px, floorY + y, oz + pz, BlockType.WOOD);
+    }
+    // Cross beam at top
+    placeBlock(ox + px - 1, floorY + wallHeight + 7, oz + pz, BlockType.WOOD);
+    placeBlock(ox + px + 1, floorY + wallHeight + 7, oz + pz, BlockType.WOOD);
+  }
+
+  // ===== ROOF (teal/green - LEAVES closest match) =====
+  // Main flat roof
+  for (let x = 0; x < PIZZERIA_WIDTH; x++) {
+    for (let z = 0; z < PIZZERIA_DEPTH; z++) {
+      placeBlock(ox + x, floorY + wallHeight, oz + z, BlockType.LEAVES);
+    }
+  }
+  // Roof overhang (awning extends 2 blocks outward on all sides)
+  for (let x = -2; x < PIZZERIA_WIDTH + 2; x++) {
+    for (let ovr = 1; ovr <= 2; ovr++) {
+      placeBlock(ox + x, floorY + wallHeight, oz - ovr, BlockType.LEAVES);
+      placeBlock(ox + x, floorY + wallHeight, oz + PIZZERIA_DEPTH - 1 + ovr, BlockType.LEAVES);
+    }
   }
   for (let z = 0; z < PIZZERIA_DEPTH; z++) {
-    placeBlock(ox - 1, floorY + wallHeight, oz + z, BlockType.STONE);
-    placeBlock(ox + PIZZERIA_WIDTH, floorY + wallHeight, oz + z, BlockType.STONE);
+    for (let ovr = 1; ovr <= 2; ovr++) {
+      placeBlock(ox - ovr, floorY + wallHeight, oz + z, BlockType.LEAVES);
+      placeBlock(ox + PIZZERIA_WIDTH - 1 + ovr, floorY + wallHeight, oz + z, BlockType.LEAVES);
+    }
+  }
+  // Roof border trim (dark edge)
+  for (let x = -2; x < PIZZERIA_WIDTH + 2; x++) {
+    placeBlock(ox + x, floorY + wallHeight, oz - 3, BlockType.DARK_OAK);
+    placeBlock(ox + x, floorY + wallHeight, oz + PIZZERIA_DEPTH + 1, BlockType.DARK_OAK);
+  }
+  for (let z = -2; z < PIZZERIA_DEPTH + 2; z++) {
+    placeBlock(ox - 3, floorY + wallHeight, oz + z, BlockType.DARK_OAK);
+    placeBlock(ox + PIZZERIA_WIDTH + 1, floorY + wallHeight, oz + z, BlockType.DARK_OAK);
   }
 
   // ===== RAISED FRONT FACADE + FREDDY FACE =====
@@ -1686,21 +1768,20 @@ function generatePizzeriaInChunk(
   const facadeExtraH = 14;
   const facadeStartX = Math.floor(PIZZERIA_WIDTH / 2) - Math.floor(facadeWidth / 2);
 
-  // Build raised facade above front wall
+  // Build raised facade above front wall (dark background for sign)
   for (let x = 0; x < facadeWidth; x++) {
     for (let y = 0; y < facadeExtraH; y++) {
-      const block = (x + y) % 2 === 0 ? BlockType.PLANKS : BlockType.SAND;
-      placeBlock(ox + facadeStartX + x, floorY + wallHeight + 1 + y, oz, block);
+      placeBlock(ox + facadeStartX + x, floorY + wallHeight + 1 + y, oz, BlockType.OBSIDIAN);
     }
   }
-  // Facade border pillars
+  // Facade border pillars (DARK_OAK)
   for (let y = 0; y < facadeExtraH; y++) {
-    placeBlock(ox + facadeStartX - 1, floorY + wallHeight + 1 + y, oz, BlockType.STONE);
-    placeBlock(ox + facadeStartX + facadeWidth, floorY + wallHeight + 1 + y, oz, BlockType.STONE);
+    placeBlock(ox + facadeStartX - 1, floorY + wallHeight + 1 + y, oz, BlockType.DARK_OAK);
+    placeBlock(ox + facadeStartX + facadeWidth, floorY + wallHeight + 1 + y, oz, BlockType.DARK_OAK);
   }
   // Facade top cap
   for (let x = -1; x <= facadeWidth; x++) {
-    placeBlock(ox + facadeStartX + x, floorY + wallHeight + facadeExtraH + 1, oz, BlockType.STONE);
+    placeBlock(ox + facadeStartX + x, floorY + wallHeight + facadeExtraH + 1, oz, BlockType.DARK_OAK);
   }
 
   // Freddy Fazbear face - 13 wide x 12 tall pixel art
@@ -1742,6 +1823,16 @@ function generatePizzeriaInChunk(
         placeBlock(ox + faceOffsetX + col, faceOffsetY + row, oz, faceBlockMap[ch]);
       }
     }
+  }
+
+  // ===== ENTRANCE STEPS (from parking lot up to building floor) =====
+  // Steps go from baseY (parking surface) up to floorY (baseY+1)
+  // Place a wide staircase in front of the entrance
+  const stepsWidth = 8;
+  const stepsStartX = entranceCX - Math.floor(stepsWidth / 2);
+  // The building is 1 block above parking. Add a cobblestone ramp/step.
+  for (let x = 0; x < stepsWidth; x++) {
+    placeBlock(ox + stepsStartX + x, baseY, oz - 1, BlockType.COBBLESTONE);
   }
 
   // ===== INTERIOR WALLS (DARK_OAK, 5 blocks tall) =====
