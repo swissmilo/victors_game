@@ -16,6 +16,7 @@ import { MeteorShowerSystem } from './MeteorShowerSystem';
 import { SandstormSystem } from './SandstormSystem';
 import { GodzillaSystem } from './GodzillaSystem';
 import { ZombieSystem } from './ZombieSystem';
+import { AnimatronicSystem } from './AnimatronicSystem';
 import { BlackHoleParkour } from './BlackHoleParkour';
 import { NuclearMissileSystem } from './NuclearMissileSystem';
 import { SeaMonsters } from './SeaMonsters';
@@ -164,6 +165,7 @@ export function Scene({
           <SandstormSystem />
           <GodzillaSystem />
           <ZombieSystem />
+          <AnimatronicSystem />
           <NuclearMissileSystem />
         </>
       )}

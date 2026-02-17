@@ -1566,6 +1566,97 @@ function generateRocketInChunk(
   }
 }
 
+// ===== ROAD NETWORK =====
+// Axis-aligned road segments connecting structures
+interface RoadSegment { x1: number; z1: number; x2: number; z2: number }
+
+const ROAD_HALF_WIDTH = 2;
+const ROAD_SEGMENTS: RoadSegment[] = [
+  // Waterpark connector (south from waterpark east edge to main road)
+  { x1: -60, z1: 120, x2: -60, z2: 65 },
+  // Main east-west road
+  { x1: -60, z1: 65, x2: 215, z2: 65 },
+  // Mansion branch (north from main road to mansion front)
+  { x1: 45, z1: 65, x2: 45, z2: 18 },
+  // Pizzeria branch (south from main road to pizzeria parking lot)
+  { x1: 175, z1: 65, x2: 175, z2: 188 },
+];
+
+function chunkContainsRoad(chunkWorldX: number, chunkWorldZ: number): boolean {
+  const cMinX = chunkWorldX;
+  const cMaxX = chunkWorldX + CHUNK_SIZE;
+  const cMinZ = chunkWorldZ;
+  const cMaxZ = chunkWorldZ + CHUNK_SIZE;
+  const hw = ROAD_HALF_WIDTH;
+
+  for (const seg of ROAD_SEGMENTS) {
+    const sMinX = Math.min(seg.x1, seg.x2) - hw;
+    const sMaxX = Math.max(seg.x1, seg.x2) + hw;
+    const sMinZ = Math.min(seg.z1, seg.z2) - hw;
+    const sMaxZ = Math.max(seg.z1, seg.z2) + hw;
+
+    if (!(cMaxX < sMinX || cMinX > sMaxX || cMaxZ < sMinZ || cMinZ > sMaxZ)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isOnRoad(wx: number, wz: number): { on: boolean; edge: boolean } {
+  const hw = ROAD_HALF_WIDTH;
+  for (const seg of ROAD_SEGMENTS) {
+    const minX = Math.min(seg.x1, seg.x2);
+    const maxX = Math.max(seg.x1, seg.x2);
+    const minZ = Math.min(seg.z1, seg.z2);
+    const maxZ = Math.max(seg.z1, seg.z2);
+
+    if (seg.z1 === seg.z2) {
+      // Horizontal segment
+      if (wx >= minX - hw && wx <= maxX + hw) {
+        const dz = Math.abs(wz - seg.z1);
+        if (dz <= hw) return { on: true, edge: dz === hw };
+      }
+    } else {
+      // Vertical segment
+      if (wz >= minZ - hw && wz <= maxZ + hw) {
+        const dx = Math.abs(wx - seg.x1);
+        if (dx <= hw) return { on: true, edge: dx === hw };
+      }
+    }
+  }
+  return { on: false, edge: false };
+}
+
+function generateRoadsInChunk(
+  chunk: ChunkData,
+  chunkWorldX: number,
+  chunkWorldZ: number
+): void {
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      const wx = chunkWorldX + x;
+      const wz = chunkWorldZ + z;
+      const road = isOnRoad(wx, wz);
+      if (!road.on) continue;
+
+      const height = getTerrainHeightAt(wx, wz);
+      const block = road.edge ? BlockType.COBBLESTONE : BlockType.STONE;
+
+      // Road surface at terrain height
+      setBlockInChunk(chunk, x, height, z, block);
+      // Also place one below to smooth slopes
+      if (height > 0) setBlockInChunk(chunk, x, height - 1, z, BlockType.COBBLESTONE);
+
+      // Clear 4 blocks above road surface
+      for (let y = 1; y <= 4; y++) {
+        if (height + y < CHUNK_HEIGHT) {
+          setBlockInChunk(chunk, x, height + y, z, BlockType.AIR);
+        }
+      }
+    }
+  }
+}
+
 // ===== FNAF PIZZERIA =====
 const PIZZERIA_ORIGIN = { x: 150, z: 200 };
 const PIZZERIA_WIDTH = 50;
@@ -2139,6 +2230,11 @@ export function generateChunk(position: ChunkPosition): ChunkData {
         setBlockInChunk(chunk, x, y, z, blockType);
       }
     }
+  }
+
+  // Generate road network (before structures so buildings override roads)
+  if (chunkContainsRoad(worldX, worldZ)) {
+    generateRoadsInChunk(chunk, worldX, worldZ);
   }
 
   // Add haunted mansion if this chunk overlaps with it

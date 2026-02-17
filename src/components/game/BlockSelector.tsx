@@ -82,6 +82,8 @@ export function BlockSelector({
   const hitZombie = useGameStore((state) => state.hitZombie);
   const zombies = useGameStore((state) => state.zombies);
   const setTargetedZombieInStore = useGameStore((state) => state.setTargetedZombieId);
+  const hitAnimatronic = useGameStore((state) => state.hitAnimatronic);
+  const animatronics = useGameStore((state) => state.animatronics);
   
   // Helper to check if a position is far enough from player for continuous action
   const isFarEnoughFromPlayer = useCallback((pos: { x: number; y: number; z: number }) => {
@@ -148,6 +150,38 @@ export function BlockSelector({
 
     return closestZombieId;
   }, [camera, zombies]);
+
+  // Check if player is looking at an animatronic (ray march)
+  const checkAnimatronicHit = useCallback((): number | null => {
+    if (animatronics.length === 0) return null;
+
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(camera.quaternion);
+    direction.normalize();
+
+    const origin = camera.position.clone();
+    const maxDistance = 10;
+    const hitRadius = 2.5;
+
+    let closestId: number | null = null;
+    let closestDist = Infinity;
+
+    const step = 0.1;
+    for (let t = 0; t < maxDistance; t += step) {
+      const rayPoint = origin.clone().add(direction.clone().multiplyScalar(t));
+      for (const anim of animatronics) {
+        if (anim.isDead) continue;
+        const pos = new THREE.Vector3(anim.position[0], anim.position[1], anim.position[2]);
+        const dist = rayPoint.distanceTo(pos);
+        if (dist < hitRadius && t < closestDist) {
+          closestId = anim.id;
+          closestDist = t;
+        }
+      }
+      if (closestId !== null) break;
+    }
+    return closestId;
+  }, [camera, animatronics]);
 
   // Break block at specific hit position
   const breakBlockAt = useCallback((hit: BlockHit) => {
@@ -296,11 +330,15 @@ export function BlockSelector({
 
       const now = Date.now();
       if (event.button === 0) {
-        // Left click - first check for zombie hit
+        // Left click - first check for zombie/animatronic hit
         const zombieId = checkZombieHit();
         if (zombieId !== null) {
-          // Hit a zombie instead of breaking a block
           hitZombie(zombieId);
+          return;
+        }
+        const animId = checkAnimatronicHit();
+        if (animId !== null) {
+          hitAnimatronic(animId);
           return;
         }
 
@@ -349,7 +387,7 @@ export function BlockSelector({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [enabled, breakBlock, placeBlock, targetBlock, checkZombieHit, hitZombie]);
+  }, [enabled, breakBlock, placeBlock, targetBlock, checkZombieHit, hitZombie, checkAnimatronicHit, hitAnimatronic]);
 
   // Raycast every frame to find targeted block and zombie
   useFrame(() => {
@@ -454,6 +492,13 @@ export function BlockSelector({
           if (hitZombieId !== null) {
             hitZombie(hitZombieId);
             return; // Don't place block if we hit a zombie
+          }
+
+          // Also check animatronics on right-click
+          const animHitId = checkAnimatronicHit();
+          if (animHitId !== null) {
+            hitAnimatronic(animHitId);
+            return;
           }
 
           // No zombie hit, raycast for blocks and place block

@@ -147,6 +147,23 @@ export interface ZombieData {
   deathTimer: number; // Time since death for fade-out animation
 }
 
+// Animatronic state (FNAF pizzeria mobs)
+export type AnimatronicKind = 'freddy' | 'bonnie' | 'foxy' | 'chica';
+
+export interface AnimatronicData {
+  id: number;
+  kind: AnimatronicKind;
+  position: [number, number, number];
+  rotation: number;
+  health: number;
+  targetDirection: [number, number, number];
+  wanderTimer: number;
+  isHit: boolean;
+  hitTimer: number;
+  isDead: boolean;
+  deathTimer: number;
+}
+
 interface GameState {
   // Player state
   playerPosition: [number, number, number];
@@ -201,6 +218,10 @@ interface GameState {
   // Zombie state
   zombies: ZombieData[];
   targetedZombieId: number | null; // ID of zombie being targeted by crosshair
+
+  // Animatronic state (FNAF)
+  animatronics: AnimatronicData[];
+  targetedAnimatronicId: number | null;
 
   // Black Hole Parkour state
   isInBlackHoleParkour: boolean;
@@ -277,6 +298,12 @@ interface GameState {
   updateZombies: (zombies: ZombieData[]) => void;
   hitZombie: (id: number) => void;
   setTargetedZombieId: (id: number | null) => void;
+
+  // Animatronic actions
+  initializeAnimatronics: (animatronics: AnimatronicData[]) => void;
+  updateAnimatronics: (animatronics: AnimatronicData[]) => void;
+  hitAnimatronic: (id: number) => void;
+  setTargetedAnimatronicId: (id: number | null) => void;
 
   // Black Hole Parkour actions
   enterBlackHoleParkour: () => void;
@@ -457,6 +484,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   pirateShip: INITIAL_PIRATE_SHIP,
   zombies: [],
   targetedZombieId: null,
+  animatronics: [],
+  targetedAnimatronicId: null,
   isInBlackHoleParkour: false,
   parkourLevel: 1,
   parkourCheckpoint: [0, 43, 0], // Spawn above start platform
@@ -719,6 +748,37 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setTargetedZombieId: (id) => set({ targetedZombieId: id }),
 
+  // Animatronic actions
+  initializeAnimatronics: (animatronics) => set({ animatronics }),
+  updateAnimatronics: (animatronics) => set({ animatronics }),
+  hitAnimatronic: (id) => {
+    const playerPos = get().playerPosition;
+    set((state) => ({
+      animatronics: state.animatronics.map((a) => {
+        if (a.id === id && !a.isDead && !a.isHit) {
+          const newHealth = a.health - 1;
+          const dx = a.position[0] - playerPos[0];
+          const dz = a.position[2] - playerPos[2];
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          const knockbackDir: [number, number, number] = distance > 0
+            ? [dx / distance, 0, dz / distance]
+            : [0, 0, 1];
+          return {
+            ...a,
+            health: newHealth,
+            isHit: true,
+            hitTimer: 0.2,
+            isDead: newHealth <= 0,
+            deathTimer: newHealth <= 0 ? 0 : a.deathTimer,
+            targetDirection: knockbackDir,
+          };
+        }
+        return a;
+      }),
+    }));
+  },
+  setTargetedAnimatronicId: (id) => set({ targetedAnimatronicId: id }),
+
   enterBlackHoleParkour: () => {
     // Level 1 start platform position (spawn 3 blocks above platform at Y=40)
     const startPos: [number, number, number] = [0, 43, 0];
@@ -829,7 +889,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       meteorShower: INITIAL_METEOR_SHOWER,
       sandstorm: INITIAL_SANDSTORM,
       godzilla: INITIAL_GODZILLA,
-      zombies: saveData.zombies || [], // Load saved zombies or empty array
+      zombies: saveData.zombies || [],
+      animatronics: [], // Re-spawn fresh on load
       pirateShip: INITIAL_PIRATE_SHIP,
     });
 
@@ -865,6 +926,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       sandstorm: INITIAL_SANDSTORM,
       godzilla: INITIAL_GODZILLA,
       zombies: [],
+      animatronics: [],
       pirateShip: INITIAL_PIRATE_SHIP,
       missileState: 'idle',
       missilePosition: [5, 42, 0],
