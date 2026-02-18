@@ -63,7 +63,7 @@ function seededRandom(seed: number): () => number {
 /**
  * Get the terrain height at a world position using advanced layered noise
  */
-function getTerrainHeightAt(worldX: number, worldZ: number): number {
+export function getTerrainHeightAt(worldX: number, worldZ: number): number {
   // Layer 1: Continental/biome scale (very low frequency)
   // Determines major landmasses vs lowlands
   const continental = warpedFbm(worldX, worldZ, 2, 0.5, 0.002, 50);
@@ -1658,9 +1658,9 @@ function generateRoadsInChunk(
 }
 
 // ===== FNAF PIZZERIA =====
-const PIZZERIA_ORIGIN = { x: 150, z: 200 };
-const PIZZERIA_WIDTH = 50;
-const PIZZERIA_DEPTH = 40;
+export const PIZZERIA_ORIGIN = { x: 150, z: 200 };
+export const PIZZERIA_WIDTH = 50;
+export const PIZZERIA_DEPTH = 40;
 
 const PIZZERIA_LOT_PAD = 12; // Parking lot extends this far beyond building
 

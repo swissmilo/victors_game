@@ -3,9 +3,10 @@
 import { useMemo, useEffect, useRef } from 'react';
 import { useGameStore } from '@/stores';
 import { ChunkMesh } from './ChunkMesh';
-import { generateChunk } from '@/lib/worldGen';
-import { 
-  ChunkPosition, 
+import { generateChunk, getTerrainHeightAt, PIZZERIA_ORIGIN, PIZZERIA_WIDTH, PIZZERIA_DEPTH } from '@/lib/worldGen';
+import { DarkZone } from '@/lib/meshBuilder';
+import {
+  ChunkPosition,
   chunkPositionToKey,
   CHUNK_SIZE,
 } from '@/types';
@@ -64,6 +65,26 @@ export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
   const getChunk = useGameStore((state) => state.getChunk);
   const unloadDistantChunks = useGameStore((state) => state.unloadDistantChunks);
   
+  // Compute FNAF pizzeria interior dark zone
+  const darkZones: DarkZone[] = useMemo(() => {
+    const terrainY = getTerrainHeightAt(
+      PIZZERIA_ORIGIN.x + PIZZERIA_WIDTH / 2,
+      PIZZERIA_ORIGIN.z + PIZZERIA_DEPTH / 2,
+    );
+    const baseY = terrainY + 10;
+    const floorY = baseY + 1;
+    const wallHeight = 7;
+    return [{
+      minX: PIZZERIA_ORIGIN.x,
+      maxX: PIZZERIA_ORIGIN.x + PIZZERIA_WIDTH - 1,
+      minY: floorY,
+      maxY: floorY + wallHeight - 1,
+      minZ: PIZZERIA_ORIGIN.z,
+      maxZ: PIZZERIA_ORIGIN.z + PIZZERIA_DEPTH - 1,
+      darkness: 0.15,
+    }];
+  }, []);
+
   // Track pending chunk generation
   const pendingChunksRef = useRef<ChunkPosition[]>([]);
   const isGeneratingRef = useRef(false);
@@ -168,6 +189,7 @@ export function World({ renderDistance = 8, unloadDistance = 12 }: WorldProps) {
             key={key}
             position={position}
             data={chunk.data}
+            darkZones={darkZones}
           />
         );
       })}

@@ -14,3 +14,4 @@ export { ZombieSystem } from './ZombieSystem';
 export { BlackHoleParkour } from './BlackHoleParkour';
 export { SeaMonsters } from './SeaMonsters';
 export { PirateShipSystem } from './PirateShipSystem';
+export { FNAFLighting } from './FNAFLighting';

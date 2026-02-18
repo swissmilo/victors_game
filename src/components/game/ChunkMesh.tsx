@@ -3,20 +3,24 @@
 import { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { ChunkData, ChunkPosition, CHUNK_SIZE, CHUNK_HEIGHT } from '@/types';
-import { buildChunkMesh, buildWaterMesh, createChunkGeometry } from '@/lib/meshBuilder';
+import { buildChunkMesh, buildWaterMesh, createChunkGeometry, DarkZone } from '@/lib/meshBuilder';
 import { getSharedChunkMaterial, getSharedWaterMaterial } from '@/lib/textureAtlas';
 
 interface ChunkMeshProps {
   position: ChunkPosition;
   data: ChunkData;
+  darkZones?: DarkZone[];
 }
 
-export function ChunkMesh({ position, data }: ChunkMeshProps) {
+export function ChunkMesh({ position, data, darkZones }: ChunkMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
+
+  const worldX = position.x * CHUNK_SIZE;
+  const worldZ = position.z * CHUNK_SIZE;
 
   // Build opaque mesh geometry from chunk data
   const geometry = useMemo(() => {
-    const meshData = buildChunkMesh(data);
+    const meshData = buildChunkMesh(data, worldX, worldZ, darkZones);
     const geo = createChunkGeometry(meshData);
 
     geo.boundingBox = new THREE.Box3(
@@ -27,11 +31,11 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
     geo.boundingBox.getBoundingSphere(geo.boundingSphere);
 
     return geo;
-  }, [data]);
+  }, [data, worldX, worldZ, darkZones]);
 
   // Build water mesh geometry (separate for translucent rendering)
   const waterGeometry = useMemo(() => {
-    const meshData = buildWaterMesh(data);
+    const meshData = buildWaterMesh(data, worldX, worldZ, darkZones);
     if (meshData.positions.length === 0) return null;
     const geo = createChunkGeometry(meshData);
 
@@ -43,13 +47,10 @@ export function ChunkMesh({ position, data }: ChunkMeshProps) {
     geo.boundingBox.getBoundingSphere(geo.boundingSphere);
 
     return geo;
-  }, [data]);
+  }, [data, worldX, worldZ, darkZones]);
 
   const material = useMemo(() => getSharedChunkMaterial(), []);
   const waterMaterial = useMemo(() => getSharedWaterMaterial(), []);
-
-  const worldX = position.x * CHUNK_SIZE;
-  const worldZ = position.z * CHUNK_SIZE;
 
   useEffect(() => {
     return () => {

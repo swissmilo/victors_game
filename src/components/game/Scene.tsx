@@ -21,6 +21,7 @@ import { BlackHoleParkour } from './BlackHoleParkour';
 import { NuclearMissileSystem } from './NuclearMissileSystem';
 import { SeaMonsters } from './SeaMonsters';
 import { PirateShipSystem } from './PirateShipSystem';
+import { FNAFLighting } from './FNAFLighting';
 import { useGameStore } from '@/stores';
 
 interface SceneProps {
@@ -145,6 +146,9 @@ export function Scene({
       
       {/* Black Hole Parkour - only shown when in parkour mode */}
       {isInBlackHoleParkour && <BlackHoleParkour />}
+
+      {/* FNAF Pizzeria interior lighting */}
+      {!isInBlackHoleParkour && <FNAFLighting />}
 
       {/* Pirate ship - always present */}
       {!isInBlackHoleParkour && <PirateShipSystem />}

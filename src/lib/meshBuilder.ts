@@ -7,6 +7,18 @@ import * as THREE from 'three';
 import { BlockType, BLOCK_DEFINITIONS, ChunkData, CHUNK_SIZE, CHUNK_HEIGHT, getBlockFromChunk } from '@/types';
 import { getTextureUVs } from './textureAtlas';
 
+/** A region where vertex colors are darkened (e.g. building interiors). */
+export interface DarkZone {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+  /** Multiplier applied to face shading (0 = black, 1 = normal). */
+  darkness: number;
+}
+
 // Face directions: [dx, dy, dz, face index]
 // Face indices: 0=top, 1=bottom, 2=front(+z), 3=back(-z), 4=left(-x), 5=right(+x)
 const FACES = [
@@ -76,29 +88,57 @@ function getFaceShading(faceIndex: number): number {
 }
 
 /**
+ * Check if a world-space position falls inside any dark zone and return
+ * the darkness multiplier (1.0 = no darkening).
+ */
+function getDarkZoneMultiplier(worldX: number, worldY: number, worldZ: number, darkZones: DarkZone[]): number {
+  for (const z of darkZones) {
+    if (worldX >= z.minX && worldX <= z.maxX &&
+        worldY >= z.minY && worldY <= z.maxY &&
+        worldZ >= z.minZ && worldZ <= z.maxZ) {
+      return z.darkness;
+    }
+  }
+  return 1.0;
+}
+
+/**
  * Build mesh data for a chunk using simple face culling
  * Only renders faces between solid and non-solid blocks
  */
-export function buildChunkMesh(chunk: ChunkData): ChunkMeshData {
+export function buildChunkMesh(
+  chunk: ChunkData,
+  chunkWorldX?: number,
+  chunkWorldZ?: number,
+  darkZones?: DarkZone[],
+): ChunkMeshData {
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
   const colors: number[] = [];
-  
+
+  const hasDarkZones = darkZones && darkZones.length > 0 && chunkWorldX != null && chunkWorldZ != null;
+
   let vertexIndex = 0;
-  
+
   for (let y = 0; y < CHUNK_HEIGHT; y++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
       for (let x = 0; x < CHUNK_SIZE; x++) {
         const block = getBlockFromChunk(chunk, x, y, z);
-        
+
         // Skip air blocks
         if (block === BlockType.AIR) continue;
-        
+
         const blockDef = BLOCK_DEFINITIONS[block];
         if (!blockDef || !blockDef.solid) continue;
-        
+
+        // Compute dark zone multiplier once per block
+        let darkMul = 1.0;
+        if (hasDarkZones) {
+          darkMul = getDarkZoneMultiplier(chunkWorldX + x, y, chunkWorldZ! + z, darkZones);
+        }
+
         // Check each face
         for (let faceIdx = 0; faceIdx < FACES.length; faceIdx++) {
           const face = FACES[faceIdx];
@@ -106,42 +146,42 @@ export function buildChunkMesh(chunk: ChunkData): ChunkMeshData {
           const nx = x + dx;
           const ny = y + dy;
           const nz = z + dz;
-          
+
           // Only render face if neighbor is not solid (or is transparent)
           const neighborSolid = isBlockSolid(chunk, nx, ny, nz);
           const neighborTransparent = isBlockTransparent(chunk, nx, ny, nz);
-          
+
           if (neighborSolid && !neighborTransparent) continue;
-          
+
           // Get texture UVs
           const textureIdx = getTextureIndex(block, faceIdx);
           const [u0, v0, u1, v1] = getTextureUVs(textureIdx);
-          
+
           // Get shading for this face (simulates ambient occlusion)
-          const faceShade = getFaceShading(faceIdx);
-          
+          const faceShade = getFaceShading(faceIdx) * darkMul;
+
           // Add the 4 corners of the face
           for (const corner of face.corners) {
             positions.push(x + corner[0], y + corner[1], z + corner[2]);
             normals.push(dx, dy, dz);
             colors.push(faceShade, faceShade, faceShade);
           }
-          
+
           // UV coordinates for the 4 corners
           uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
-          
+
           // Two triangles per face (indices) - counter-clockwise winding for front face
           indices.push(
             vertexIndex, vertexIndex + 2, vertexIndex + 1,
             vertexIndex, vertexIndex + 3, vertexIndex + 2
           );
-          
+
           vertexIndex += 4;
         }
       }
     }
   }
-  
+
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
@@ -172,12 +212,19 @@ export function createChunkGeometry(meshData: ChunkMeshData): THREE.BufferGeomet
  * Build mesh data for water blocks in a chunk.
  * Separate from opaque mesh so it can use a translucent material.
  */
-export function buildWaterMesh(chunk: ChunkData): ChunkMeshData {
+export function buildWaterMesh(
+  chunk: ChunkData,
+  chunkWorldX?: number,
+  chunkWorldZ?: number,
+  darkZones?: DarkZone[],
+): ChunkMeshData {
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
   const colors: number[] = [];
+
+  const hasDarkZones = darkZones && darkZones.length > 0 && chunkWorldX != null && chunkWorldZ != null;
 
   let vertexIndex = 0;
 
@@ -186,6 +233,11 @@ export function buildWaterMesh(chunk: ChunkData): ChunkMeshData {
       for (let x = 0; x < CHUNK_SIZE; x++) {
         const block = getBlockFromChunk(chunk, x, y, z);
         if (block !== BlockType.WATER) continue;
+
+        let darkMul = 1.0;
+        if (hasDarkZones) {
+          darkMul = getDarkZoneMultiplier(chunkWorldX + x, y, chunkWorldZ! + z, darkZones);
+        }
 
         for (let faceIdx = 0; faceIdx < FACES.length; faceIdx++) {
           const face = FACES[faceIdx];
@@ -204,7 +256,7 @@ export function buildWaterMesh(chunk: ChunkData): ChunkMeshData {
 
           const textureIdx = getTextureIndex(block, faceIdx);
           const [u0, v0, u1, v1] = getTextureUVs(textureIdx);
-          const faceShade = getFaceShading(faceIdx);
+          const faceShade = getFaceShading(faceIdx) * darkMul;
 
           for (const corner of face.corners) {
             positions.push(x + corner[0], y + corner[1], z + corner[2]);
