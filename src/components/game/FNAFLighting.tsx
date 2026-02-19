@@ -1,23 +1,26 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import * as THREE from 'three';
 import { getTerrainHeightAt, PIZZERIA_ORIGIN, PIZZERIA_WIDTH, PIZZERIA_DEPTH } from '@/lib/worldGen';
 
 /**
- * Interior point lights for the FNAF Pizzeria.
- * Creates atmospheric pools of light in an otherwise darkened interior.
+ * Interior point lights and exterior logo sign for the FNAF Pizzeria.
  */
 export function FNAFLighting() {
-  const lights = useMemo(() => {
-    const ox = PIZZERIA_ORIGIN.x;
-    const oz = PIZZERIA_ORIGIN.z;
+  const ox = PIZZERIA_ORIGIN.x;
+  const oz = PIZZERIA_ORIGIN.z;
+
+  const { floorY, ceilingY, wallHeight } = useMemo(() => {
     const terrainY = getTerrainHeightAt(
       ox + PIZZERIA_WIDTH / 2,
       oz + PIZZERIA_DEPTH / 2,
     );
-    const floorY = terrainY + 10 + 1;
-    const ceilingY = floorY + 5; // Slightly below roof for ceiling-mounted feel
+    const fy = terrainY + 10 + 1;
+    return { floorY: fy, ceilingY: fy + 5, wallHeight: 7 };
+  }, [ox, oz]);
 
+  const lights = useMemo(() => {
     return [
       // Stage - bright overhead wash
       { pos: [ox + 25, ceilingY + 1, oz + 16] as const, color: '#ffffff', intensity: 15, distance: 25 },
@@ -47,7 +50,31 @@ export function FNAFLighting() {
       // Entrance - warm welcoming light
       { pos: [ox + 25, ceilingY, oz + 1] as const, color: '#ffcc88', intensity: 3, distance: 12 },
     ];
+  }, [ox, oz, floorY, ceilingY]);
+
+  // Load logo texture for exterior sign
+  const [logoTexture, setLogoTexture] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    loader.load('/textures/fnaf_logo.png', (tex) => {
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      // Flip horizontally so text reads correctly from front
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.repeat.x = -1;
+      tex.offset.x = 1;
+      setLogoTexture(tex);
+    });
+    return () => { logoTexture?.dispose(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Logo sign on a pole to the right of the entrance
+  const poleX = ox + PIZZERIA_WIDTH / 2 + 12; // Right of entrance
+  const signY = floorY + wallHeight + 4; // Above pole top
+  const signZ = oz - 4; // In front of building
+  const signWidth = 12;
+  const signHeight = 6;
 
   return (
     <group>
@@ -61,6 +88,18 @@ export function FNAFLighting() {
           decay={2}
         />
       ))}
+
+      {/* Exterior logo sign mounted on pole */}
+      {logoTexture && (
+        <mesh position={[poleX, signY, signZ]}>
+          <planeGeometry args={[signWidth, signHeight]} />
+          <meshBasicMaterial
+            map={logoTexture}
+            transparent
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
     </group>
   );
 }

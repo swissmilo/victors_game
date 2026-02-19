@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore, AnimatronicData, AnimatronicKind } from '@/stores';
 import { CHUNK_SIZE, CHUNK_HEIGHT, getBlockFromChunk, chunkPositionToKey, BlockType } from '@/types';
+import { getTerrainHeightAt } from '@/lib/worldGen';
 
 // Animatronic configuration
 const ANIMATRONIC_SPEED = 1.0;
@@ -21,8 +22,8 @@ const PIZZERIA_BOUNDS = {
   maxZ: PIZZERIA_ORIGIN.z + PIZZERIA_DEPTH - 2,
 };
 
-// Scale factor
-const SCALE = 4;
+// Scale factor (must fit inside 7-block-tall rooms)
+const SCALE = 2.5;
 
 // Body part dimensions
 const HEAD_SIZE = 0.5 * SCALE;
@@ -60,12 +61,17 @@ function isInsidePizzeria(x: number, z: number): boolean {
 }
 
 function generateInitialAnimatronics(): AnimatronicData[] {
+  // Compute interior floor level so animatronics spawn on the stage, not the roof
+  const terrainY = getTerrainHeightAt(STAGE_CENTER_X, STAGE_CENTER_Z);
+  const floorY = terrainY + 10 + 1; // baseY + 1
+  const interiorY = floorY + 3; // Inside building, below roof
+
   return ANIMATRONIC_DEFS.map((def, i) => ({
     id: i,
     kind: def.kind,
     position: [
       STAGE_CENTER_X + def.spawnOffset[0],
-      50, // Will be corrected by ground detection
+      interiorY, // Start inside building so ground detection finds stage floor
       STAGE_CENTER_Z + def.spawnOffset[1],
     ] as [number, number, number],
     rotation: Math.PI, // Face the audience (toward -Z)
@@ -231,8 +237,8 @@ export function AnimatronicSystem() {
     }
   }, [animatronics.length, isPlaying, initializeAnimatronics]);
 
-  // Ground level detection - scans downward from fromY to find interior floor
-  // (scanning from chunk top would find the roof instead of the floor)
+  // Ground level detection - scans downward to find interior floor
+  // Skips LEAVES roof blocks when inside the pizzeria so animatronics land on the floor
   const findGroundLevel = (x: number, z: number, fromY: number): number => {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkZ = Math.floor(z / CHUNK_SIZE);
@@ -243,10 +249,13 @@ export function AnimatronicSystem() {
     const localX = ((Math.floor(x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const localZ = ((Math.floor(z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 
+    const inside = isInsidePizzeria(x, z);
     const startY = Math.min(Math.floor(fromY), CHUNK_HEIGHT - 1);
     for (let y = startY; y >= 0; y--) {
       const block = getBlockFromChunk(chunk.data, localX, y, localZ);
       if (block !== BlockType.AIR) {
+        // Skip roof (LEAVES) when inside pizzeria so we find the actual floor
+        if (inside && block === BlockType.LEAVES) continue;
         return y + 1;
       }
     }

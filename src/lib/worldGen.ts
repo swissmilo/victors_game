@@ -1875,34 +1875,38 @@ function generatePizzeriaInChunk(
     placeBlock(ox + facadeStartX + x, floorY + wallHeight + facadeExtraH + 1, oz, BlockType.DARK_OAK);
   }
 
-  // Freddy Fazbear face - 13 wide x 12 tall pixel art
-  // B=DARK_OAK (brown), S=SAND (muzzle), O=ORANGE_GLASS (eyes)
-  // K=BLACK_GLASS (pupils/nose), R=RED_WOOL (inner ears), H=OBSIDIAN (hat)
+  // Freddy Fazbear face - 25 wide x 14 tall pixel art (fills entire facade)
+  // B=DARK_OAK (brown fur), S=SAND (muzzle), K=BLACK_GLASS (pupils/mouth)
+  // R=RED_WOOL (hat band/inner ears), H=OBSIDIAN (hat), W=SNOW (teeth/pupils)
+  // D=DIRT (lighter brown accents)
   const face: string[] = [
-    '.HHHHHHHHHHH.', // hat brim
-    '...HHHHHHH...', // hat crown
-    '...HHHHHHH...', // hat crown
-    'RBB.......BBR', // ears
-    'BBBBBBBBBBBBB', // forehead
-    'BBBOKBBBKOBBB', // eyes
-    'BBBBBBBBBBBBB', // cheeks
-    'BBBBBSSSSSBBB', // upper muzzle
-    'BBBBSSKKSSBBB', // nose
-    'BBBBBSSSSSBBB', // lower muzzle
-    'BBBBBKKKBBBBB', // mouth
-    'BBBBBBBBBBBBB', // chin
+    '........HHHHHHHHH........', // hat top
+    '.......HHHHHHHHHHH.......', // hat body
+    '.......RRRRRRRRRRR.......', // hat band (red)
+    '.BBB.BBBBBBBBBBBBBBB.BBB.', // ears + forehead
+    '.BDB.BKKKKBBBBBKKKKB.BDB.', // inner ears + eye sockets (4-wide)
+    '.BBB.BKKWKBBBBBKWKKB.BBB.', // eyes with white pupils
+    '.....BBBBBBBBBBBBBBB.....', // below eyes
+    '.....BBSSSSSSSSSSSBB.....', // upper muzzle
+    '.....BBSSSSSKSSSSSBB.....', // nose
+    '.....BBSSSSSSSSSSSBB.....', // lower muzzle
+    '.....BBKKKKKKKKKKKBB.....', // mouth opening (dark)
+    '.....BBWKWKWKWKWKWBB.....', // teeth row (6 white teeth)
+    '.....BBBBBBBBBBBBBBB.....', // lower face
+    '......BBBBBBBBBBBBB......', // chin
   ];
 
   const faceBlockMap: Record<string, BlockType> = {
     'B': BlockType.DARK_OAK,
     'S': BlockType.SAND,
-    'O': BlockType.ORANGE_GLASS,
     'K': BlockType.BLACK_GLASS,
     'R': BlockType.RED_WOOL,
     'H': BlockType.OBSIDIAN,
+    'W': BlockType.SNOW,
+    'D': BlockType.DIRT,
   };
 
-  const faceW = 13;
+  const faceW = 25;
   const faceH = face.length;
   const faceOffsetX = facadeStartX + Math.floor((facadeWidth - faceW) / 2);
   const faceOffsetY = floorY + wallHeight + 1 + Math.floor((facadeExtraH - faceH) / 2);
@@ -1914,6 +1918,13 @@ function generatePizzeriaInChunk(
         placeBlock(ox + faceOffsetX + col, faceOffsetY + row, oz, faceBlockMap[ch]);
       }
     }
+  }
+
+  // ===== LOGO SIGN POLE (right of entrance, in front of building) =====
+  const signPoleX = Math.floor(PIZZERIA_WIDTH / 2) + 12;
+  const signPoleZ = -4;
+  for (let y = 0; y <= wallHeight + 5; y++) {
+    placeBlock(ox + signPoleX, floorY + y, oz + signPoleZ, BlockType.WOOD);
   }
 
   // ===== ENTRANCE STEPS (from parking lot up to building floor) =====
@@ -2093,6 +2104,26 @@ function generatePizzeriaInChunk(
     }
   }
 
+  // Hallway decorative stripe at eye level (cyan accent like reference)
+  for (let z = 1; z < 20; z++) {
+    // West hallway - stripe on outer wall (x=0) and inner wall (x=7)
+    placeBlock(ox + 1, floorY + 2, oz + z, BlockType.HARDENED_CLAY_CYAN);
+    // East hallway - stripe on outer wall (x=49) and inner wall (x=42)
+    placeBlock(ox + 48, floorY + 2, oz + z, BlockType.HARDENED_CLAY_CYAN);
+  }
+
+  // Hallway posters/paintings (spaced along walls)
+  // West hallway paintings (on outer wall x=1, facing east)
+  placeBlock(ox + 1, floorY + 3, oz + 3, BlockType.PAINTING_1);
+  placeBlock(ox + 1, floorY + 3, oz + 8, BlockType.PAINTING_2);
+  placeBlock(ox + 1, floorY + 3, oz + 13, BlockType.PAINTING_1);
+  placeBlock(ox + 1, floorY + 3, oz + 18, BlockType.PAINTING_2);
+  // East hallway paintings (on outer wall x=48, facing west)
+  placeBlock(ox + 48, floorY + 3, oz + 3, BlockType.PAINTING_2);
+  placeBlock(ox + 48, floorY + 3, oz + 8, BlockType.PAINTING_1);
+  placeBlock(ox + 48, floorY + 3, oz + 13, BlockType.PAINTING_2);
+  placeBlock(ox + 48, floorY + 3, oz + 18, BlockType.PAINTING_1);
+
   // Sparse hallway ceiling lights (every 8 blocks)
   for (let z = 4; z <= 18; z += 8) {
     placeBlock(ox + 3, floorY + wallHeight - 1, oz + z, BlockType.MAGMA);
@@ -2106,17 +2137,81 @@ function generatePizzeriaInChunk(
       placeBlock(ox + x, baseY, oz + z, BlockType.METAL);
     }
   }
-  // Scattered metal debris
+
+  // Workbench along back wall (x=2..12, z=37)
+  for (let x = 2; x <= 12; x++) {
+    placeBlock(ox + x, floorY, oz + 37, BlockType.METAL);
+    placeBlock(ox + x, floorY + 1, oz + 37, BlockType.PLANKS);
+  }
+  // Tools/parts on workbench
+  placeBlock(ox + 3, floorY + 2, oz + 37, BlockType.METAL);
+  placeBlock(ox + 6, floorY + 2, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 9, floorY + 2, oz + 37, BlockType.METAL);
+  placeBlock(ox + 11, floorY + 2, oz + 37, BlockType.BLACK_GLASS);
+
+  // Shelving unit along left wall (x=1, z=22..36)
+  for (let z = 22; z <= 36; z += 2) {
+    placeBlock(ox + 1, floorY, oz + z, BlockType.METAL);
+    placeBlock(ox + 1, floorY + 1, oz + z, BlockType.METAL);
+    placeBlock(ox + 1, floorY + 2, oz + z, BlockType.METAL);
+    placeBlock(ox + 1, floorY + 3, oz + z, BlockType.METAL);
+  }
+  // Items on shelves
+  placeBlock(ox + 2, floorY + 1, oz + 22, BlockType.COBBLESTONE);
+  placeBlock(ox + 2, floorY + 1, oz + 24, BlockType.DARK_OAK);
+  placeBlock(ox + 2, floorY + 3, oz + 26, BlockType.ORANGE_GLASS);
+  placeBlock(ox + 2, floorY + 1, oz + 28, BlockType.COBBLESTONE);
+  placeBlock(ox + 2, floorY + 3, oz + 30, BlockType.SAND);
+  placeBlock(ox + 2, floorY + 1, oz + 34, BlockType.RED_WOOL);
+
+  // Spare animatronic heads on shelf (colored blocks representing heads)
+  placeBlock(ox + 2, floorY + 3, oz + 22, BlockType.DARK_OAK);   // Freddy head
+  placeBlock(ox + 2, floorY + 3, oz + 24, BlockType.COBBLESTONE); // Bonnie head
+  placeBlock(ox + 2, floorY + 3, oz + 34, BlockType.SAND);        // Chica head
+
+  // Disassembled animatronic (larger mess on floor)
+  placeBlock(ox + 8, floorY, oz + 33, BlockType.COBBLESTONE);   // torso on floor
+  placeBlock(ox + 9, floorY, oz + 33, BlockType.COBBLESTONE);   // torso
+  placeBlock(ox + 8, floorY, oz + 34, BlockType.COBBLESTONE);   // arm
+  placeBlock(ox + 10, floorY, oz + 33, BlockType.METAL);        // endoskeleton
+  placeBlock(ox + 8, floorY + 1, oz + 33, BlockType.DARK_OAK); // head on top
+  placeBlock(ox + 7, floorY, oz + 34, BlockType.METAL);         // leg
+  placeBlock(ox + 9, floorY, oz + 35, BlockType.METAL);         // leg
+
+  // Another broken animatronic in corner
+  placeBlock(ox + 12, floorY, oz + 22, BlockType.SAND);         // Chica body
+  placeBlock(ox + 12, floorY + 1, oz + 22, BlockType.SAND);     // head
+  placeBlock(ox + 13, floorY, oz + 22, BlockType.ORANGE_GLASS); // bib piece
+  placeBlock(ox + 12, floorY, oz + 23, BlockType.METAL);        // parts
+
+  // Scattered metal debris and parts
   placeBlock(ox + 3, floorY, oz + 25, BlockType.METAL);
   placeBlock(ox + 5, floorY, oz + 30, BlockType.METAL);
   placeBlock(ox + 10, floorY, oz + 23, BlockType.METAL);
   placeBlock(ox + 7, floorY, oz + 35, BlockType.METAL);
-  // Spare animatronic figure (disassembled)
-  placeBlock(ox + 8, floorY, oz + 33, BlockType.COBBLESTONE);   // torso on floor
-  placeBlock(ox + 9, floorY, oz + 33, BlockType.COBBLESTONE);   // head beside
-  placeBlock(ox + 8, floorY, oz + 34, BlockType.COBBLESTONE);   // arm
-  // Single dim light
+  placeBlock(ox + 4, floorY, oz + 27, BlockType.COBBLESTONE);
+  placeBlock(ox + 6, floorY, oz + 32, BlockType.DARK_OAK);
+  placeBlock(ox + 11, floorY, oz + 28, BlockType.METAL);
+  placeBlock(ox + 3, floorY, oz + 36, BlockType.COBBLESTONE);
+
+  // Stacked boxes/crates along right side (x=13..14)
+  for (let z = 25; z <= 31; z += 3) {
+    placeBlock(ox + 13, floorY, oz + z, BlockType.PLANKS);
+    placeBlock(ox + 14, floorY, oz + z, BlockType.PLANKS);
+    placeBlock(ox + 13, floorY + 1, oz + z, BlockType.PLANKS);
+  }
+  placeBlock(ox + 14, floorY + 1, oz + 25, BlockType.PLANKS);
+  placeBlock(ox + 14, floorY + 2, oz + 25, BlockType.PLANKS);
+
+  // Cables/wires on floor (dark blocks)
+  placeBlock(ox + 5, floorY, oz + 26, BlockType.BLACK_GLASS);
+  placeBlock(ox + 6, floorY, oz + 26, BlockType.BLACK_GLASS);
+  placeBlock(ox + 6, floorY, oz + 27, BlockType.BLACK_GLASS);
+  placeBlock(ox + 7, floorY, oz + 27, BlockType.BLACK_GLASS);
+
+  // Ceiling lights (dim, sparse)
   placeBlock(ox + 8, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+  placeBlock(ox + 4, floorY + wallHeight - 1, oz + 24, BlockType.MAGMA);
 
   // ===== KITCHEN (x=16..34, z=21..38) =====
   // Stone floor
@@ -2130,11 +2225,43 @@ function generatePizzeriaInChunk(
     placeBlock(ox + x, floorY, oz + 37, BlockType.STONE);
     placeBlock(ox + x, floorY + 1, oz + 37, BlockType.METAL);
   }
-  // Side counter
+  // Items on back counter
+  placeBlock(ox + 18, floorY + 2, oz + 37, BlockType.METAL);    // pot
+  placeBlock(ox + 21, floorY + 2, oz + 37, BlockType.PLANKS);   // cutting board
+  placeBlock(ox + 24, floorY + 2, oz + 37, BlockType.METAL);    // pan
+  placeBlock(ox + 27, floorY + 2, oz + 37, BlockType.COBBLESTONE); // bowl
+  placeBlock(ox + 33, floorY + 2, oz + 37, BlockType.METAL);    // utensils
+
+  // Side counter (left wall)
   for (let z = 30; z <= 37; z++) {
     placeBlock(ox + 17, floorY, oz + z, BlockType.STONE);
     placeBlock(ox + 17, floorY + 1, oz + z, BlockType.METAL);
   }
+  // Items on side counter
+  placeBlock(ox + 17, floorY + 2, oz + 31, BlockType.PLANKS);   // pizza box
+  placeBlock(ox + 17, floorY + 2, oz + 34, BlockType.METAL);    // mixer
+
+  // Right side counter (x=33, z=22..29)
+  for (let z = 22; z <= 29; z++) {
+    placeBlock(ox + 33, floorY, oz + z, BlockType.STONE);
+    placeBlock(ox + 33, floorY + 1, oz + z, BlockType.METAL);
+  }
+  // Items on right counter
+  placeBlock(ox + 33, floorY + 2, oz + 23, BlockType.PLANKS);
+  placeBlock(ox + 33, floorY + 2, oz + 26, BlockType.METAL);
+
+  // Center island prep table (x=22..27, z=26..27)
+  for (let x = 22; x <= 27; x++) {
+    placeBlock(ox + x, floorY, oz + 26, BlockType.STONE);
+    placeBlock(ox + x, floorY + 1, oz + 26, BlockType.METAL);
+    placeBlock(ox + x, floorY, oz + 27, BlockType.STONE);
+    placeBlock(ox + x, floorY + 1, oz + 27, BlockType.METAL);
+  }
+  // Stuff on prep table
+  placeBlock(ox + 23, floorY + 2, oz + 26, BlockType.PLANKS);  // dough/pizza
+  placeBlock(ox + 25, floorY + 2, oz + 27, BlockType.RED_WOOL); // sauce
+  placeBlock(ox + 26, floorY + 2, oz + 26, BlockType.SAND);     // cheese
+
   // Oven (COBBLESTONE box with MAGMA inside)
   placeBlock(ox + 30, floorY, oz + 37, BlockType.COBBLESTONE);
   placeBlock(ox + 31, floorY, oz + 37, BlockType.COBBLESTONE);
@@ -2142,8 +2269,40 @@ function generatePizzeriaInChunk(
   placeBlock(ox + 31, floorY + 1, oz + 37, BlockType.COBBLESTONE);
   placeBlock(ox + 30, floorY, oz + 36, BlockType.MAGMA);
   placeBlock(ox + 31, floorY, oz + 36, BlockType.MAGMA);
-  // Kitchen light
+
+  // Second oven
+  placeBlock(ox + 28, floorY, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 29, floorY, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 28, floorY + 1, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 29, floorY + 1, oz + 37, BlockType.COBBLESTONE);
+  placeBlock(ox + 28, floorY, oz + 36, BlockType.MAGMA);
+
+  // Shelving on left wall (x=16, z=22..29)
+  for (let z = 22; z <= 28; z += 3) {
+    placeBlock(ox + 16, floorY, oz + z, BlockType.METAL);
+    placeBlock(ox + 16, floorY + 1, oz + z, BlockType.METAL);
+    placeBlock(ox + 16, floorY + 2, oz + z, BlockType.METAL);
+    placeBlock(ox + 16, floorY + 3, oz + z, BlockType.METAL);
+  }
+
+  // Pizza boxes stacked in corner (x=16..17, z=37..38)
+  placeBlock(ox + 16, floorY, oz + 38, BlockType.PLANKS);
+  placeBlock(ox + 16, floorY + 1, oz + 38, BlockType.PLANKS);
+  placeBlock(ox + 16, floorY + 2, oz + 38, BlockType.PLANKS);
+  placeBlock(ox + 17, floorY, oz + 38, BlockType.PLANKS);
+
+  // Scattered flour/mess on floor
+  placeBlock(ox + 20, floorY, oz + 24, BlockType.SNOW);
+  placeBlock(ox + 22, floorY, oz + 30, BlockType.SNOW);
+  placeBlock(ox + 26, floorY, oz + 23, BlockType.PLANKS);  // dropped pizza box
+
+  // Trash/debris
+  placeBlock(ox + 19, floorY, oz + 32, BlockType.DARK_OAK);
+  placeBlock(ox + 30, floorY, oz + 24, BlockType.PLANKS);
+
+  // Kitchen ceiling lights
   placeBlock(ox + 25, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+  placeBlock(ox + 20, floorY + wallHeight - 1, oz + 25, BlockType.MAGMA);
 
   // ===== SECURITY OFFICE (x=36..48, z=21..38) =====
   // Dark checkered floor with black clay variety
@@ -2154,20 +2313,94 @@ function generatePizzeriaInChunk(
       placeBlock(ox + x, baseY, oz + z, block);
     }
   }
-  // Desk (PLANKS)
-  for (let x = 40; x <= 44; x++) {
+
+  // Main desk (PLANKS) - wider L-shaped desk
+  for (let x = 39; x <= 45; x++) {
     placeBlock(ox + x, floorY, oz + 28, BlockType.WOOD);
     placeBlock(ox + x, floorY + 1, oz + 28, BlockType.PLANKS);
   }
-  // Monitors on desk (BLACK_GLASS)
+  // Desk side extension (L-shape toward back wall)
+  for (let z = 28; z <= 31; z++) {
+    placeBlock(ox + 45, floorY, oz + z, BlockType.WOOD);
+    placeBlock(ox + 45, floorY + 1, oz + z, BlockType.PLANKS);
+  }
+
+  // Monitors stacked on desk (2 rows like the reference)
+  placeBlock(ox + 40, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
   placeBlock(ox + 41, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
   placeBlock(ox + 42, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
   placeBlock(ox + 43, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
-  // Fan (METAL)
-  placeBlock(ox + 45, floorY + 1, oz + 26, BlockType.METAL);
-  placeBlock(ox + 45, floorY + 2, oz + 26, BlockType.METAL);
-  // Single dim light
+  placeBlock(ox + 44, floorY + 2, oz + 28, BlockType.BLACK_GLASS);
+  // Stacked monitors (second row)
+  placeBlock(ox + 41, floorY + 3, oz + 28, BlockType.BLACK_GLASS);
+  placeBlock(ox + 42, floorY + 3, oz + 28, BlockType.BLACK_GLASS);
+  placeBlock(ox + 43, floorY + 3, oz + 28, BlockType.BLACK_GLASS);
+
+  // Monitor on side desk
+  placeBlock(ox + 45, floorY + 2, oz + 30, BlockType.BLACK_GLASS);
+  placeBlock(ox + 45, floorY + 2, oz + 31, BlockType.BLACK_GLASS);
+
+  // Chair (behind desk)
+  placeBlock(ox + 42, floorY, oz + 26, BlockType.DARK_OAK);
+  placeBlock(ox + 42, floorY + 1, oz + 26, BlockType.RED_WOOL);
+
+  // Fan (METAL) on desk corner
+  placeBlock(ox + 39, floorY + 2, oz + 28, BlockType.METAL);
+
+  // Filing cabinets along back wall (z=37..38)
+  for (let x = 37; x <= 47; x += 2) {
+    placeBlock(ox + x, floorY, oz + 37, BlockType.METAL);
+    placeBlock(ox + x, floorY + 1, oz + 37, BlockType.METAL);
+    placeBlock(ox + x, floorY + 2, oz + 37, BlockType.METAL);
+  }
+  // Papers/stuff on top of filing cabinets
+  placeBlock(ox + 37, floorY + 3, oz + 37, BlockType.PLANKS);
+  placeBlock(ox + 41, floorY + 3, oz + 37, BlockType.PLANKS);
+  placeBlock(ox + 45, floorY + 3, oz + 37, BlockType.DARK_OAK);
+
+  // Side shelving (x=47..48, z=22..36)
+  for (let z = 22; z <= 35; z += 3) {
+    placeBlock(ox + 47, floorY, oz + z, BlockType.METAL);
+    placeBlock(ox + 47, floorY + 1, oz + z, BlockType.METAL);
+    placeBlock(ox + 47, floorY + 2, oz + z, BlockType.METAL);
+    placeBlock(ox + 47, floorY + 3, oz + z, BlockType.METAL);
+  }
+  // Items on shelves
+  placeBlock(ox + 47, floorY + 1, oz + 23, BlockType.PLANKS);
+  placeBlock(ox + 47, floorY + 3, oz + 25, BlockType.BLACK_GLASS);
+  placeBlock(ox + 47, floorY + 1, oz + 31, BlockType.COBBLESTONE);
+
+  // Stacked boxes in corner (x=36..37, z=34..36)
+  placeBlock(ox + 36, floorY, oz + 35, BlockType.PLANKS);
+  placeBlock(ox + 37, floorY, oz + 35, BlockType.PLANKS);
+  placeBlock(ox + 36, floorY + 1, oz + 35, BlockType.PLANKS);
+  placeBlock(ox + 36, floorY, oz + 36, BlockType.PLANKS);
+  placeBlock(ox + 37, floorY, oz + 36, BlockType.PLANKS);
+  placeBlock(ox + 37, floorY + 1, oz + 36, BlockType.PLANKS);
+  placeBlock(ox + 36, floorY + 2, oz + 35, BlockType.PLANKS);
+
+  // Pizza boxes on floor (scattered)
+  placeBlock(ox + 38, floorY, oz + 24, BlockType.PLANKS);
+  placeBlock(ox + 40, floorY, oz + 33, BlockType.PLANKS);
+  placeBlock(ox + 44, floorY, oz + 25, BlockType.PLANKS);
+
+  // Cables on floor
+  placeBlock(ox + 41, floorY, oz + 27, BlockType.BLACK_GLASS);
+  placeBlock(ox + 42, floorY, oz + 27, BlockType.BLACK_GLASS);
+  placeBlock(ox + 43, floorY, oz + 27, BlockType.BLACK_GLASS);
+
+  // "CAUTION" sign above doorway (use RED_WOOL + ORANGE blocks near door)
+  placeBlock(ox + 36, floorY + 3, oz + 21, BlockType.RED_WOOL);
+  placeBlock(ox + 37, floorY + 3, oz + 21, BlockType.HARDENED_CLAY_ORANGE);
+  placeBlock(ox + 38, floorY + 3, oz + 21, BlockType.RED_WOOL);
+
+  // Posters/paintings on walls
+  placeBlock(ox + 36, floorY + 2, oz + 25, BlockType.PAINTING_1);
+  placeBlock(ox + 36, floorY + 2, oz + 32, BlockType.PAINTING_2);
+
+  // Ceiling lights (dim)
   placeBlock(ox + 42, floorY + wallHeight - 1, oz + 30, BlockType.MAGMA);
+  placeBlock(ox + 42, floorY + wallHeight - 1, oz + 24, BlockType.MAGMA);
 }
 
 function chunkContainsMansion(chunkWorldX: number, chunkWorldZ: number): boolean {
